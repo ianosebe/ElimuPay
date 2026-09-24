@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Download, AlertTriangle, Code, ArrowRightLeft } from 'lucide-react';
+import { Search, Download, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 
 export default function Transactions() {
   const [activeTab, setActiveTab] = useState('ledger');
@@ -9,7 +9,7 @@ export default function Transactions() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Transactions & Reconciliation</h1>
-          <p className="text-sm text-gray-500 mt-1">Financial ledger, unallocated payments, and gateway logs</p>
+          <p className="text-sm text-gray-500 mt-1">Financial ledger and unallocated payments</p>
         </div>
       </div>
 
@@ -37,16 +37,6 @@ export default function Transactions() {
               <AlertTriangle className="w-4 h-4 mr-2" /> Unallocated (M-Pesa)
               <span className="ml-2 bg-yellow-100 text-yellow-800 py-0.5 px-2 rounded-full text-xs">2</span>
             </button>
-            <button
-              onClick={() => setActiveTab('webhooks')}
-              className={`${
-                activeTab === 'webhooks'
-                  ? 'border-gray-500 text-gray-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } flex items-center whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm transition`}
-            >
-              <Code className="w-4 h-4 mr-2" /> Webhook Logs (Dev)
-            </button>
           </nav>
         </div>
 
@@ -68,6 +58,33 @@ export default function Transactions() {
               </div>
               <p className="text-gray-500 text-sm italic">Showing the last 30 days of transactions.</p>
               {/* Full ledger table can go here (similar to Dashboard but with Receipt No, Payment Method) */}
+              <table className="min-w-full divide-y divide-gray-200 border rounded-lg overflow-hidden mt-4">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  <tr>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">RCPT-0012</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2026-09-24</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">John Doe (S001)</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Bank Transfer</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-green-600">Ksh 20,000</td>
+                  </tr>
+                  <tr>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">RCPT-0011</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2026-09-23</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Jane Smith (S002)</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">M-Pesa</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-green-600">Ksh 75,000</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
 
@@ -120,22 +137,6 @@ export default function Transactions() {
                   </tr>
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {activeTab === 'webhooks' && (
-            <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-400 overflow-x-auto">
-              <p className="text-gray-400 mb-2">// Listening for incoming Daraja API STK Push callbacks...</p>
-              <div className="space-y-2">
-                <div>
-                  <span className="text-gray-500">[2026-09-24 16:45:01] POST /api/mpesa/callback</span>
-                  <pre className="mt-1">{JSON.stringify({ "Body": { "stkCallback": { "MerchantRequestID": "29115-34620561-1", "CheckoutRequestID": "ws_CO_24092026164501234", "ResultCode": 0, "ResultDesc": "The service request is processed successfully." } } }, null, 2)}</pre>
-                </div>
-                <div className="text-red-400">
-                  <span className="text-gray-500">[2026-09-24 16:40:12] POST /api/mpesa/callback</span>
-                  <pre className="mt-1">{JSON.stringify({ "Body": { "stkCallback": { "ResultCode": 1032, "ResultDesc": "Request cancelled by user" } } }, null, 2)}</pre>
-                </div>
-              </div>
             </div>
           )}
         </div>
