@@ -1,7 +1,7 @@
 export const mockUsers = [
   { id: 1, username: 'admin', password: 'password', role: 'admin', name: 'School Admin' },
-  { id: 2, username: 'parent1', password: 'password', role: 'parent', name: 'John Doe Sr.', studentId: 'S001' },
-  { id: 3, username: 'parent2', password: 'password', role: 'parent', name: 'Jane Smith Sr.', studentId: 'S002' },
+  { id: 2, username: 'parent1', password: 'password', role: 'parent', name: 'John Doe Sr.', childrenIds: ['S001', 'S002'] },
+  { id: 3, username: 'parent2', password: 'password', role: 'parent', name: 'Jane Smith Sr.', childrenIds: ['S003'] },
 ];
 
 export const feeStructure = {
