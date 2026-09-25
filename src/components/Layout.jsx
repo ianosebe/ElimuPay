@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
-import { Users, Home, LogOut, UserCircle, LayoutDashboard, FileText, Settings, BookOpen, Receipt, BarChart } from 'lucide-react';
+import { Users, Home, LogOut, UserCircle, LayoutDashboard, FileText, Settings, BookOpen, Receipt, BarChart, Briefcase, User, Calendar, ClipboardList, CheckSquare, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export function Layout() {
@@ -21,6 +21,11 @@ export function Layout() {
     const adminLinks = [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
       { name: 'Student Profiles', path: '/admin/students', icon: Users },
+      { name: 'Teacher Profiles', path: '/admin/teachers', icon: Briefcase },
+      { name: 'Staff Profiles', path: '/admin/staff', icon: User },
+      { name: 'Timetable', path: '/admin/timetable', icon: Calendar },
+      { name: 'Examination & Results', path: '/admin/exams', icon: ClipboardList },
+      { name: 'Daily Attendance', path: '/admin/attendance', icon: CheckSquare },
       { name: 'Fee Structures', path: '/admin/fee-structures', icon: BookOpen },
       { name: 'Transactions', path: '/admin/transactions', icon: Receipt },
       { name: 'Reports', path: '/admin/reports', icon: BarChart },
@@ -30,22 +35,29 @@ export function Layout() {
     return (
       <div className="min-h-screen bg-gray-50 flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-slate-900 text-slate-300 flex-col hidden md:flex min-h-screen fixed">
+        <aside className="w-64 bg-slate-900 text-slate-300 flex-col hidden md:flex h-screen fixed">
           <div className="h-16 flex items-center px-6 bg-slate-950">
             <span className="text-xl font-bold text-blue-500">ElimuPay Admin</span>
           </div>
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
             {adminLinks.map(link => {
               const Icon = link.icon;
               const isActive = location.pathname === link.path || (link.path !== '/admin' && location.pathname.startsWith(link.path));
+              const hasDropdown = link.name === 'Timetable' || link.name === 'Examination & Results';
+              
               return (
-                <div key={link.name} className="flex flex-col">
+                <div key={link.name} className="flex flex-col group">
                   <Link
                     to={link.path}
-                    className={`flex items-center px-3 py-2.5 rounded-lg transition-colors ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
                   >
-                    <Icon className="w-5 h-5 mr-3" />
-                    <span className="font-medium text-sm">{link.name}</span>
+                    <div className="flex items-center">
+                      <Icon className="w-5 h-5 mr-3" />
+                      <span className="font-medium text-sm">{link.name}</span>
+                    </div>
+                    {hasDropdown && (
+                      <ChevronDown className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
                   </Link>
                   {link.name === 'Student Profiles' && isActive && (
                     <div className="ml-8 mt-1 space-y-1">
@@ -55,6 +67,22 @@ export function Layout() {
                           <Link 
                             key={grade} 
                             to={`/admin/students?grade=${grade}`}
+                            className={`block px-3 py-2 text-sm rounded-lg transition-colors ${isGradeActive ? 'text-white bg-slate-800 font-medium' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                          >
+                            {grade}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {hasDropdown && (
+                    <div className="ml-8 mt-1 space-y-1 hidden group-hover:block transition-all">
+                      {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(grade => {
+                        const isGradeActive = location.pathname === link.path && (location.search.includes(`grade=${grade.replace(' ', '+')}`) || location.search.includes(`grade=${grade.replace(' ', '%20')}`));
+                        return (
+                          <Link 
+                            key={grade} 
+                            to={`${link.path}?grade=${grade}`}
                             className={`block px-3 py-2 text-sm rounded-lg transition-colors ${isGradeActive ? 'text-white bg-slate-800 font-medium' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                           >
                             {grade}

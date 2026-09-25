@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { studentsData } from '../data/mockData';
+import { studentsData } from '../../data/mockData';
 import { Link } from 'react-router-dom';
 import { Search, ChevronRight, TrendingUp, AlertCircle, Download, FileText, Plus, Bell, Calendar, UserPlus } from 'lucide-react';
 

@@ -13,6 +13,12 @@ import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
+import Teachers from './pages/admin/Teachers';
+import Staff from './pages/admin/Staff';
+import Timetable from './pages/admin/Timetable';
+import Exams from './pages/admin/Exams';
+import Attendance from './pages/admin/Attendance';
+
 function HomeRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -42,6 +48,11 @@ function App() {
               <Route path="/admin/fee-structures" element={<FeeStructures />} />
               <Route path="/admin/transactions" element={<Transactions />} />
               <Route path="/admin/students" element={<Students />} />
+              <Route path="/admin/teachers" element={<Teachers />} />
+              <Route path="/admin/staff" element={<Staff />} />
+              <Route path="/admin/timetable" element={<Timetable />} />
+              <Route path="/admin/exams" element={<Exams />} />
+              <Route path="/admin/attendance" element={<Attendance />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/settings" element={<Settings />} />
             </Route>

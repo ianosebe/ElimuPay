@@ -22,13 +22,6 @@ export default function AdminDashboard() {
     fetchStats();
   }, []);
 
-  const quickLinks = [
-    { title: 'Student Profiles', desc: 'Manage enrollments and details', icon: Users, path: '/admin/students', color: 'bg-blue-100 text-blue-600' },
-    { title: 'Transactions', desc: 'View payments and balances', icon: Receipt, path: '/admin/transactions', color: 'bg-green-100 text-green-600' },
-    { title: 'Fee Structures', desc: 'Manage class pricing', icon: BookOpen, path: '/admin/fee-structures', color: 'bg-purple-100 text-purple-600' },
-    { title: 'Settings', desc: 'System configuration', icon: Settings, path: '/admin/settings', color: 'bg-gray-100 text-gray-600' }
-  ];
-
   const stats = [
     { label: 'Total Students', value: loading ? '...' : studentCount, icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-100' },
     { label: 'Total Teachers', value: '12', icon: Briefcase, color: 'text-emerald-600', bg: 'bg-emerald-100' },
@@ -59,20 +52,6 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {quickLinks.map((link) => (
-            <Link key={link.title} to={link.path} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition group">
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${link.color}`}>
-                <link.icon className="w-6 h-6" />
-              </div>
-              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition">{link.title}</h3>
-              <p className="text-sm text-gray-500 mt-1">{link.desc}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
