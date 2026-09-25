@@ -7,15 +7,28 @@ import { supabase } from '../lib/supabase';
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [studentCount, setStudentCount] = useState(0);
+  const [teacherCount, setTeacherCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { count } = await supabase
+      // Fetch students count
+      const { count: sCount } = await supabase
         .from('students')
         .select('*', { count: 'exact', head: true });
       
-      setStudentCount(count || 0);
+      setStudentCount(sCount || 0);
+
+      // Fetch teachers count
+      const { count: tCount, error } = await supabase
+        .from('teachers')
+        .select('*', { count: 'exact', head: true });
+      
+      // If table doesn't exist yet, this will error but we just ignore it
+      if (!error) {
+        setTeacherCount(tCount || 0);
+      }
+      
       setLoading(false);
     };
     
@@ -24,9 +37,9 @@ export default function AdminDashboard() {
 
   const stats = [
     { label: 'Total Students', value: loading ? '...' : studentCount, icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'Total Teachers', value: '12', icon: Briefcase, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { label: 'Total Teachers', value: loading ? '...' : teacherCount, icon: Briefcase, color: 'text-emerald-600', bg: 'bg-emerald-100' },
     { label: 'Active Classes', value: '6', icon: School, color: 'text-purple-600', bg: 'bg-purple-100' },
-    { label: 'Support Staff', value: '4', icon: Users, color: 'text-orange-600', bg: 'bg-orange-100' },
+    { label: 'Support Staff', value: '0', icon: Users, color: 'text-orange-600', bg: 'bg-orange-100' },
   ];
 
   return (

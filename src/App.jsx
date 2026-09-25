@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Teachers from './pages/admin/Teachers';
+import AddTeacher from './pages/admin/AddTeacher';
 import Staff from './pages/admin/Staff';
 import Timetable from './pages/admin/Timetable';
 import Exams from './pages/admin/Exams';
@@ -49,6 +50,7 @@ function App() {
               <Route path="/admin/transactions" element={<Transactions />} />
               <Route path="/admin/students" element={<Students />} />
               <Route path="/admin/teachers" element={<Teachers />} />
+              <Route path="/admin/teachers/add" element={<AddTeacher />} />
               <Route path="/admin/staff" element={<Staff />} />
               <Route path="/admin/timetable" element={<Timetable />} />
               <Route path="/admin/exams" element={<Exams />} />
