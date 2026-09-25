@@ -20,7 +20,7 @@ export function Layout() {
   if (user.role === 'admin') {
     const adminLinks = [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-      { name: 'Students CRM', path: '/admin/students', icon: Users },
+      { name: 'Student Profiles', path: '/admin/students', icon: Users },
       { name: 'Fee Structures', path: '/admin/fee-structures', icon: BookOpen },
       { name: 'Transactions', path: '/admin/transactions', icon: Receipt },
       { name: 'Reports', path: '/admin/reports', icon: BarChart },

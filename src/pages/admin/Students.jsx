@@ -1,39 +1,38 @@
 import { useState } from 'react';
 import { studentsData } from '../../data/mockData';
-import { Search, Filter, Plus, MoreVertical, Edit, Trash2, Mail, Phone } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Phone, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [gradeFilter, setGradeFilter] = useState('all');
 
   const filteredStudents = studentsData.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           student.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const isCleared = student.totalFees - student.paidFees <= 0;
-    const matchesStatus = statusFilter === 'all' 
-      ? true 
-      : statusFilter === 'cleared' ? isCleared : !isCleared;
       
-    return matchesSearch && matchesStatus;
+    const matchesGrade = gradeFilter === 'all' ? true : student.grade === gradeFilter;
+
+    return matchesSearch && matchesGrade;
   });
+
+  const getClassTitle = () => {
+    return gradeFilter === 'all' ? 'All Classes' : `${gradeFilter} Class`;
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Student CRM</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage enrollment, contact details, and fee ledgers.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Student Profiles</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage enrollment, contact details, and student records.</p>
         </div>
-        <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition">
-          <Plus className="w-4 h-4 mr-2" /> Enroll Student
-        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full sm:w-96">
+        {/* Filters and Controls */}
+        <div className="p-6 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="relative w-full md:w-96">
             <input
               type="text"
               placeholder="Search by name or admission number..."
@@ -43,37 +42,54 @@ export default function Students() {
             />
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
           </div>
+        </div>
+
+        {/* Dynamic Class Header & Add Child Button */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-lg font-semibold text-gray-900">{getClassTitle()} Students</h2>
           
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <select
-              className="border border-gray-300 text-sm rounded-lg py-2 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-gray-500" />
+              <select
+                className="border border-gray-300 text-sm rounded-lg py-2 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+              >
+                <option value="all">All Grades</option>
+                <option value="Grade 1">Grade 1</option>
+                <option value="Grade 2">Grade 2</option>
+                <option value="Grade 3">Grade 3</option>
+                <option value="Grade 4">Grade 4</option>
+                <option value="Grade 5">Grade 5</option>
+                <option value="Grade 6">Grade 6</option>
+              </select>
+            </div>
+            <Link 
+              to="/admin/students/add" 
+              state={{ grade: gradeFilter !== 'all' ? gradeFilter : 'Grade 1' }} 
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition"
             >
-              <option value="all">All Statuses</option>
-              <option value="cleared">Fees Cleared</option>
-              <option value="pending">Balance Pending</option>
-            </select>
+              <Plus className="w-4 h-4 mr-2" /> Add Student
+            </Link>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-white">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Details</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Primary Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Financial Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admission Number</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent Number</th>
+                {gradeFilter === 'all' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                )}
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredStudents.map(student => {
-                const balance = student.totalFees - student.paidFees;
-                const isCleared = balance <= 0;
-                
                 return (
                   <tr key={student.id} className="hover:bg-gray-50 transition">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -85,35 +101,23 @@ export default function Students() {
                           <Link to={`/admin/student/${student.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
                             {student.name}
                           </Link>
-                          <div className="text-xs text-gray-500">Adm: {student.id}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {student.grade}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700 font-mono">
+                      {student.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Parent / Guardian</div>
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
-                        <Phone className="w-3 h-3 mr-1" /> +254 7XX XXX XXX
+                      <div className="text-sm text-gray-900 flex items-center">
+                        <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                        +254 7XX XXX XXX
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {isCleared ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Cleared
-                        </span>
-                      ) : (
-                        <div className="flex flex-col">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 w-max">
-                            Pending
-                          </span>
-                          <span className="text-xs font-semibold text-red-600 mt-1">
-                            Arrears: Ksh {balance.toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                    </td>
+                    {gradeFilter === 'all' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {student.grade}
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button className="text-gray-400 hover:text-blue-600" title="Edit Student">
@@ -131,7 +135,7 @@ export default function Students() {
           </table>
           {filteredStudents.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-gray-500">No students found matching your criteria.</p>
+              <p className="text-gray-500">No students found for this class.</p>
             </div>
           )}
         </div>
