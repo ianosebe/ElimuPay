@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Search, Plus, Edit, Trash2, Phone, GraduationCap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Students() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  const urlGrade = searchParams.get('grade') || 'all';
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [gradeFilter, setGradeFilter] = useState('all');
+  const [gradeFilter, setGradeFilter] = useState(urlGrade);
   const [studentsData, setStudentsData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setGradeFilter(urlGrade);
+  }, [urlGrade]);
 
   useEffect(() => {
     fetchStudents();
@@ -93,29 +102,15 @@ export default function Students() {
           <h2 className="text-lg font-semibold text-gray-900">{getClassTitle()} Students</h2>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-gray-500" />
-              <select
-                className="border border-gray-300 text-sm rounded-lg py-2 pl-3 pr-8 focus:ring-blue-500 focus:border-blue-500"
-                value={gradeFilter}
-                onChange={(e) => setGradeFilter(e.target.value)}
+            {gradeFilter !== 'all' && (
+              <Link 
+                to="/admin/students/add" 
+                state={{ grade: gradeFilter }} 
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition"
               >
-                <option value="all">All Grades</option>
-                <option value="Grade 1">Grade 1</option>
-                <option value="Grade 2">Grade 2</option>
-                <option value="Grade 3">Grade 3</option>
-                <option value="Grade 4">Grade 4</option>
-                <option value="Grade 5">Grade 5</option>
-                <option value="Grade 6">Grade 6</option>
-              </select>
-            </div>
-            <Link 
-              to="/admin/students/add" 
-              state={{ grade: gradeFilter !== 'all' ? gradeFilter : 'Grade 1' }} 
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition"
-            >
-              <Plus className="w-4 h-4 mr-2" /> Add Student
-            </Link>
+                <Plus className="w-4 h-4 mr-2" /> Add Student
+              </Link>
+            )}
           </div>
         </div>
 
@@ -152,8 +147,7 @@ export default function Students() {
                       {student.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 flex items-center">
-                        <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                      <div className="text-sm text-gray-900">
                         {student.parentPhone || 'Not Provided'}
                       </div>
                     </td>

@@ -1,19 +1,54 @@
-import { useParams, Link } from 'react-router-dom';
-import { studentsData } from '../data/mockData';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { ArrowLeft, User, BookOpen, AlertTriangle, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminStudentProfile() {
   const { id } = useParams();
-  const student = studentsData.find(s => s.id === id);
+  const navigate = useNavigate();
+  const [student, setStudent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStudent = async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (data) {
+        setStudent({
+          ...data,
+          name: `${data.first_name} ${data.last_name}`,
+          totalFees: 0, // Defaults until transactions are linked
+          paidFees: 0,
+          transactions: []
+        });
+      }
+      setLoading(false);
+    };
+    
+    fetchStudent();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="text-gray-500 mt-4 font-medium">Loading profile...</p>
+      </div>
+    );
+  }
 
   if (!student) {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900">Student not found</h2>
-        <Link to="/admin" className="text-indigo-600 mt-4 inline-block hover:underline">
-          Return to Dashboard
-        </Link>
+        <button onClick={() => navigate(-1)} className="text-blue-600 mt-4 inline-block hover:underline font-medium">
+          Go Back
+        </button>
       </div>
     );
   }
@@ -24,9 +59,9 @@ export default function AdminStudentProfile() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/admin" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Dashboard
-        </Link>
+        <button onClick={() => navigate(-1)} className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 focus:outline-none">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

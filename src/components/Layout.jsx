@@ -39,14 +39,31 @@ export function Layout() {
               const Icon = link.icon;
               const isActive = location.pathname === link.path || (link.path !== '/admin' && location.pathname.startsWith(link.path));
               return (
-                <Link
-                  key={link.name}
-                  to={link.path}
-                  className={`flex items-center px-3 py-2.5 rounded-lg transition-colors ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                  <Icon className="w-5 h-5 mr-3" />
-                  <span className="font-medium text-sm">{link.name}</span>
-                </Link>
+                <div key={link.name} className="flex flex-col">
+                  <Link
+                    to={link.path}
+                    className={`flex items-center px-3 py-2.5 rounded-lg transition-colors ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 hover:text-white'}`}
+                  >
+                    <Icon className="w-5 h-5 mr-3" />
+                    <span className="font-medium text-sm">{link.name}</span>
+                  </Link>
+                  {link.name === 'Student Profiles' && isActive && (
+                    <div className="ml-8 mt-1 space-y-1">
+                      {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(grade => {
+                        const isGradeActive = location.search.includes(`grade=${grade.replace(' ', '+')}`) || location.search.includes(`grade=${grade.replace(' ', '%20')}`);
+                        return (
+                          <Link 
+                            key={grade} 
+                            to={`/admin/students?grade=${grade}`}
+                            className={`block px-3 py-2 text-sm rounded-lg transition-colors ${isGradeActive ? 'text-white bg-slate-800 font-medium' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                          >
+                            {grade}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </nav>
