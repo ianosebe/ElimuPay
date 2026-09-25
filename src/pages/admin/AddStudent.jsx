@@ -6,17 +6,21 @@ import { supabase } from '../../lib/supabase';
 export default function AddStudent() {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  const editStudent = location.state?.editStudent;
+  const isEdit = !!editStudent;
+  
   const initialGrade = location.state?.grade || 'Grade 1';
   
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    admissionNumber: '',
-    dateOfBirth: '',
+    firstName: editStudent?.first_name || '',
+    lastName: editStudent?.last_name || '',
+    admissionNumber: editStudent?.id || '',
+    dateOfBirth: '', // Not in DB yet
     gender: 'Male',
-    grade: initialGrade,
-    parentName: '',
-    parentPhone: '',
+    grade: editStudent?.grade || initialGrade,
+    parentName: editStudent?.parent_name || '',
+    parentPhone: editStudent?.parent_phone || '',
     parentEmail: '',
     address: ''
   });
@@ -29,22 +33,34 @@ export default function AddStudent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Insert into Supabase
-    const { error } = await supabase
-      .from('students')
-      .insert([
-        { 
-          id: formData.admissionNumber, 
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          grade: formData.grade
-        }
-      ]);
+    const payload = { 
+      id: formData.admissionNumber, 
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      grade: formData.grade,
+      parent_phone: formData.parentPhone,
+      parent_name: formData.parentName
+    };
+
+    let error;
+
+    if (isEdit) {
+      const { error: updateError } = await supabase
+        .from('students')
+        .update(payload)
+        .eq('id', editStudent.id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('students')
+        .insert([payload]);
+      error = insertError;
+    }
 
     if (error) {
-      alert("Error saving student: " + error.message);
+      alert(`Error ${isEdit ? 'updating' : 'saving'} student: ` + error.message);
     } else {
-      alert(`Successfully added student ${formData.firstName} ${formData.lastName}!`);
+      alert(`Successfully ${isEdit ? 'updated' : 'added'} student ${formData.firstName} ${formData.lastName}!`);
       navigate('/admin/students');
     }
   };
@@ -57,7 +73,7 @@ export default function AddStudent() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Add New Student</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit Student' : 'Add New Student'}</h1>
             <p className="text-sm text-gray-500 mt-1">Enter the student's personal and guardian details to enroll them.</p>
           </div>
         </div>
@@ -135,7 +151,7 @@ export default function AddStudent() {
             Cancel
           </Link>
           <button type="submit" className="inline-flex items-center px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg shadow-sm hover:bg-blue-700 transition">
-            <Save className="w-5 h-5 mr-2" /> Save Student
+            <Save className="w-5 h-5 mr-2" /> {isEdit ? 'Save Changes' : 'Save Student'}
           </button>
         </div>
       </form>

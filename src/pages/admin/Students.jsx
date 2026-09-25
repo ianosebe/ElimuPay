@@ -1,11 +1,55 @@
-import { useState } from 'react';
-import { studentsData } from '../../data/mockData';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import { Search, Plus, Edit, Trash2, Phone, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState('all');
+  const [studentsData, setStudentsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching students:', error);
+    } else {
+      // Map Supabase rows (first_name, last_name) into the format the UI expects
+      const mapped = data.map(s => ({
+        id: s.id,
+        name: `${s.first_name} ${s.last_name}`,
+        grade: s.grade,
+        parentPhone: s.parent_phone,
+        raw: s
+      }));
+      setStudentsData(mapped);
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this student?')) return;
+    
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      alert('Error deleting student: ' + error.message);
+    } else {
+      setStudentsData(prev => prev.filter(s => s.id !== id));
+    }
+  };
 
   const filteredStudents = studentsData.filter(student => {
     const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -110,7 +154,7 @@ export default function Students() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 flex items-center">
                         <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                        +254 7XX XXX XXX
+                        {student.parentPhone || 'Not Provided'}
                       </div>
                     </td>
                     {gradeFilter === 'all' && (
@@ -120,10 +164,19 @@ export default function Students() {
                     )}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button className="text-gray-400 hover:text-blue-600" title="Edit Student">
+                        <Link 
+                          to="/admin/students/add" 
+                          state={{ editStudent: student.raw }}
+                          className="text-gray-400 hover:text-blue-600" 
+                          title="Edit Student"
+                        >
                           <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="text-gray-400 hover:text-red-600" title="Delete Student">
+                        </Link>
+                        <button 
+                          onClick={() => handleDelete(student.id)}
+                          className="text-gray-400 hover:text-red-600" 
+                          title="Delete Student"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -133,11 +186,16 @@ export default function Students() {
               })}
             </tbody>
           </table>
-          {filteredStudents.length === 0 && (
+          {loading ? (
             <div className="text-center py-12">
-              <p className="text-gray-500">No students found for this class.</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-500 mt-4 font-medium">Loading students...</p>
             </div>
-          )}
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 font-medium">No students found for this class.</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
