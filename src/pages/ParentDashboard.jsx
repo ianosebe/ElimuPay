@@ -1,20 +1,86 @@
 import { useState, useEffect } from 'react';
-import { studentsData, feeStructure } from '../data/mockData';
 import { format, isPast, parseISO } from 'date-fns';
 import { FileText, CreditCard, DollarSign, Download, ChevronDown, Calendar, MessageSquare, X, Upload, Smartphone, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+
+const feeStructure = {
+  tuition: 50000,
+  transport: 15000,
+  lunch: 10000,
+  total: 75000
+};
 
 export default function ParentDashboard() {
   const { user } = useAuth();
   
-  // Find the students associated with the logged-in parent
-  const parentStudents = studentsData.filter(s => user.childrenIds?.includes(s.id)) || [studentsData[0]];
-  
-  const [activeStudentId, setActiveStudentId] = useState(parentStudents[0]?.id);
+  const [parentStudents, setParentStudents] = useState([]);
+  const [activeStudentId, setActiveStudentId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const [isChildDropdownOpen, setIsChildDropdownOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('mpesa');
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchChildren() {
+      if (!user?.childrenIds || user.childrenIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const { data: students, error: studentError } = await supabase
+          .from('students')
+          .select('*')
+          .in('id', user.childrenIds);
+
+        if (studentError) throw studentError;
+
+        const { data: transactions, error: txError } = await supabase
+          .from('transactions')
+          .select('*')
+          .in('student_id', user.childrenIds)
+          .order('created_at', { ascending: false });
+
+        if (txError) throw txError;
+
+        const formattedData = (students || []).map(student => {
+          const studentTxs = (transactions || []).filter(tx => tx.student_id === student.id);
+          const paidFees = studentTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+          
+          return {
+            id: student.id,
+            name: student.name,
+            grade: student.grade,
+            totalFees: student.total_fees || 75000,
+            paidFees: paidFees,
+            transactions: studentTxs
+          };
+        });
+
+        setParentStudents(formattedData);
+        if (formattedData.length > 0) {
+          setActiveStudentId(formattedData[0].id);
+        }
+      } catch (err) {
+        console.error("Error fetching children data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchChildren();
+  }, [user]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-500">Loading student profiles...</div>;
+  }
+
+  if (parentStudents.length === 0) {
+    return <div className="p-8 text-center text-gray-500">No students linked to your account.</div>;
+  }
 
   const student = parentStudents.find(s => s.id === activeStudentId) || parentStudents[0];
   const balance = student.totalFees - student.paidFees;
