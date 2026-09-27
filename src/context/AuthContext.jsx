@@ -4,66 +4,70 @@ import { supabase } from '../lib/supabase';
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [enhancedUser, setEnhancedUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Listen for changes on auth state (log in, log out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch the extended profile (role) from our parents table when the user changes
-  const [enhancedUser, setEnhancedUser] = useState(null);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) {
-        setEnhancedUser(null);
+    const fetchProfile = async (sessionUser) => {
+      if (!sessionUser) {
+        if (mounted) {
+          setEnhancedUser(null);
+          setLoading(false);
+        }
         return;
       }
       
       try {
-        // Attempt to fetch from the custom 'parents' table we created
         const { data, error } = await supabase
           .from('parents')
           .select('role, full_name')
-          .eq('id', user.id)
+          .eq('id', sessionUser.id)
           .single();
 
-        const fallbackRole = user.email === 'admin@elimupay.com' ? 'admin' : 'parent';
+        const fallbackRole = sessionUser.email === 'admin@elimupay.com' ? 'admin' : 'parent';
 
-        setEnhancedUser({
-          ...user,
-          // If the profile exists use its role, otherwise check email, then safely default to 'parent'
-          role: data?.role || user.user_metadata?.role || fallbackRole,
-          name: data?.full_name || user.user_metadata?.full_name || user.email,
-          childrenIds: ['S001', 'S002'] // Mock link for now until we query the students table
-        });
+        if (mounted) {
+          setEnhancedUser({
+            ...sessionUser,
+            role: data?.role || sessionUser.user_metadata?.role || fallbackRole,
+            name: data?.full_name || sessionUser.user_metadata?.full_name || sessionUser.email,
+            childrenIds: ['S001', 'S002']
+          });
+          setLoading(false);
+        }
       } catch (err) {
-        // Fallback if table doesn't exist
-        const fallbackRole = user.email === 'admin@elimupay.com' ? 'admin' : 'parent';
-        setEnhancedUser({
-          ...user,
-          role: user.user_metadata?.role || fallbackRole,
-          name: user.email,
-          childrenIds: ['S001', 'S002']
-        });
+        if (mounted) {
+          const fallbackRole = sessionUser.email === 'admin@elimupay.com' ? 'admin' : 'parent';
+          setEnhancedUser({
+            ...sessionUser,
+            role: sessionUser.user_metadata?.role || fallbackRole,
+            name: sessionUser.email,
+            childrenIds: ['S001', 'S002']
+          });
+          setLoading(false);
+        }
       }
     };
 
-    fetchProfile();
-  }, [user]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      fetchProfile(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Ensure we stay in loading state if the user changes and we need to fetch again
+      if (session?.user && enhancedUser?.id !== session.user.id) {
+        setLoading(true);
+      }
+      fetchProfile(session?.user ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Standard Email/Password Login
   const login = async (email, password) => {

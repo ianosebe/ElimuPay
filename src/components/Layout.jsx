@@ -26,8 +26,7 @@ export function Layout() {
       { name: 'Timetable', path: '/admin/timetable', icon: Calendar },
       { name: 'Examination & Results', path: '/admin/exams', icon: ClipboardList },
       { name: 'Daily Attendance', path: '/admin/attendance', icon: CheckSquare },
-      { name: 'Fee Structures', path: '/admin/fee-structures', icon: BookOpen },
-      { name: 'Transactions', path: '/admin/transactions', icon: Receipt },
+      { name: 'School Fees', path: '/admin/school-fees', icon: BookOpen },
       { name: 'Reports', path: '/admin/reports', icon: BarChart },
       { name: 'Settings', path: '/admin/settings', icon: Settings },
     ];

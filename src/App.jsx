@@ -2,8 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import ParentDashboard from './pages/ParentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudentProfile from './pages/AdminStudentProfile';
-import FeeStructures from './pages/admin/FeeStructures';
-import Transactions from './pages/admin/Transactions';
+import SchoolFees from './pages/admin/SchoolFees';
 import Students from './pages/admin/Students';
 import AddStudent from './pages/admin/AddStudent';
 import Reports from './pages/admin/Reports';
@@ -46,8 +45,7 @@ function App() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/student/:id" element={<AdminStudentProfile />} />
               <Route path="/admin/students/add" element={<AddStudent />} />
-              <Route path="/admin/fee-structures" element={<FeeStructures />} />
-              <Route path="/admin/transactions" element={<Transactions />} />
+              <Route path="/admin/school-fees" element={<SchoolFees />} />
               <Route path="/admin/students" element={<Students />} />
               <Route path="/admin/teachers" element={<Teachers />} />
               <Route path="/admin/teachers/add" element={<AddTeacher />} />
