@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, ChevronRight, TrendingUp, AlertCircle, Download, FileText, Bell, Calendar, UserPlus } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ChevronRight, TrendingUp, AlertCircle, Download, FileText, Bell, Calendar, UserPlus, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -145,6 +145,40 @@ function FeeStructureSection() {
 function TransactionsSection({ studentsData, loading }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [academicTerm, setAcademicTerm] = useState('Term 3, 2026');
+  const [isManualPaymentOpen, setIsManualPaymentOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    student_id: '',
+    amount: '',
+    method: 'cash',
+    reference: ''
+  });
+
+  const handleManualPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!paymentForm.student_id || !paymentForm.amount) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('transactions').insert([{
+        student_id: paymentForm.student_id,
+        amount: parseFloat(paymentForm.amount),
+        method: paymentForm.method,
+        type: 'credit',
+        reference: paymentForm.reference || null,
+      }]);
+      
+      if (error) throw error;
+      
+      setPaymentForm({ student_id: '', amount: '', method: 'cash', reference: '' });
+      setIsManualPaymentOpen(false);
+    } catch (err) {
+      console.error("Error recording manual payment:", err);
+      alert("Failed to record payment. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Calculate totals
   const totalSchoolFees = studentsData.reduce((acc, student) => acc + student.totalFees, 0);
@@ -212,7 +246,10 @@ function TransactionsSection({ studentsData, loading }) {
             <UserPlus className="w-4 h-4 mr-2" /> New Student
           </button>
           
-          <button className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg shadow-sm hover:bg-gray-50 transition">
+          <button 
+            onClick={() => setIsManualPaymentOpen(true)}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg shadow-sm hover:bg-gray-50 transition"
+          >
             <FileText className="w-4 h-4 mr-2" /> Manual Payment
           </button>
         </div>
@@ -359,6 +396,75 @@ function TransactionsSection({ studentsData, loading }) {
           </div>
         </div>
       </div>
+
+      {isManualPaymentOpen && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h2 className="text-xl font-bold text-gray-900">Record Manual Payment</h2>
+              <button onClick={() => setIsManualPaymentOpen(false)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleManualPaymentSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
+                <select 
+                  required
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  value={paymentForm.student_id}
+                  onChange={e => setPaymentForm({...paymentForm, student_id: e.target.value})}
+                >
+                  <option value="">-- Choose a student --</option>
+                  {studentsData.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount (Ksh)</label>
+                <input 
+                  type="number" 
+                  required
+                  min="1"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={paymentForm.amount}
+                  onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                <select 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  value={paymentForm.method}
+                  onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="manual_mpesa">M-Pesa (Manual)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reference / Receipt No. (Optional)</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={paymentForm.reference}
+                  onChange={e => setPaymentForm({...paymentForm, reference: e.target.value})}
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2.5 px-4 rounded-lg shadow transition"
+              >
+                {isSubmitting ? 'Recording...' : 'Record Payment'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
