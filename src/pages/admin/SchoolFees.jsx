@@ -470,9 +470,15 @@ function TransactionsSection({ studentsData, loading }) {
 }
 
 export default function SchoolFees() {
-  const [activeTab, setActiveTab] = useState('fee-structure');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('schoolFeesActiveTab') || 'fee-structure';
+  });
   const [studentsData, setStudentsData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    localStorage.setItem('schoolFeesActiveTab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     fetchData();
