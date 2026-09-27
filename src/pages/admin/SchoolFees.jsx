@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, ChevronRight, TrendingUp, AlertCircle, Download, FileText, Bell, Calendar, UserPlus } from 'lucide-react';
-import { studentsData } from '../../data/mockData';
 import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 function FeeStructureSection() {
   const [activeTab, setActiveTab] = useState('base');
@@ -142,7 +142,7 @@ function FeeStructureSection() {
   );
 }
 
-function TransactionsSection() {
+function TransactionsSection({ studentsData, loading }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [academicTerm, setAcademicTerm] = useState('Term 3, 2026');
 
@@ -160,13 +160,27 @@ function TransactionsSection() {
     let allTx = [];
     studentsData.forEach(student => {
       student.transactions.forEach(tx => {
-        if (tx.type === 'credit') {
-          allTx.push({ ...tx, studentName: student.name, studentId: student.id });
+        if (tx.type === 'credit' || !tx.type) {
+          allTx.push({ 
+            ...tx, 
+            date: tx.date || tx.created_at, 
+            studentName: student.name, 
+            studentId: student.id 
+          });
         }
       });
     });
     return allTx.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64 text-gray-500">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+        Loading real-time transactions...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -263,7 +277,7 @@ function TransactionsSection() {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.map(student => {
+                {filteredStudents.length > 0 ? filteredStudents.map(student => {
                   const unpaid = student.totalFees - student.paidFees;
                   const isFinished = unpaid <= 0;
                   return (
@@ -303,7 +317,13 @@ function TransactionsSection() {
                       </td>
                     </tr>
                   )
-                })}
+                }) : (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                      No students found. Add some students to the database to see them here.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -317,17 +337,23 @@ function TransactionsSection() {
             </button>
           </div>
           <div className="divide-y divide-gray-200">
-            {getRecentPayments().map((tx, idx) => (
+            {getRecentPayments().length > 0 ? getRecentPayments().map((tx, idx) => (
               <div key={idx} className="p-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{tx.studentName}</p>
-                  <p className="text-xs text-gray-500">{new Date(tx.date).toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-500">
+                    {tx.date ? new Date(tx.date).toLocaleDateString() : 'Unknown date'}
+                  </p>
                 </div>
                 <span className="text-sm font-bold text-green-600">
-                  +Ksh {tx.amount.toLocaleString()}
+                  +Ksh {Number(tx.amount).toLocaleString()}
                 </span>
               </div>
-            ))}
+            )) : (
+              <div className="p-6 text-center text-sm text-gray-500">
+                No recent transactions found.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -337,6 +363,64 @@ function TransactionsSection() {
 
 export default function SchoolFees() {
   const [activeTab, setActiveTab] = useState('fee-structure');
+  const [studentsData, setStudentsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+
+    // Subscribe to real-time changes
+    const txSubscription = supabase
+      .channel('public:transactions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    const studentSubscription = supabase
+      .channel('public:students')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(txSubscription);
+      supabase.removeChannel(studentSubscription);
+    };
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: students, error: studentError } = await supabase.from('students').select('*');
+      const { data: transactions, error: txError } = await supabase.from('transactions').select('*');
+
+      if (studentError) throw studentError;
+      if (txError) throw txError;
+
+      // Format data to match UI expectations
+      const formattedData = (students || []).map(student => {
+        const studentTxs = (transactions || []).filter(tx => tx.student_id === student.id);
+        const paidFees = studentTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+        
+        return {
+          id: student.id,
+          name: student.name,
+          grade: student.grade,
+          totalFees: student.total_fees || 75000, // fallback if no total_fees column
+          paidFees: paidFees,
+          transactions: studentTxs
+        };
+      });
+
+      setStudentsData(formattedData);
+    } catch (error) {
+      console.error("Error fetching live data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -370,7 +454,9 @@ export default function SchoolFees() {
       </div>
 
       {activeTab === 'fee-structure' && <FeeStructureSection />}
-      {activeTab === 'transactions' && <TransactionsSection />}
+      {activeTab === 'transactions' && (
+        <TransactionsSection studentsData={studentsData} loading={loading} />
+      )}
     </div>
   );
 }
