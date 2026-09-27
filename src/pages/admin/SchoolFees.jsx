@@ -151,10 +151,12 @@ function TransactionsSection({ studentsData, loading }) {
   const totalPaidFees = studentsData.reduce((acc, student) => acc + student.paidFees, 0);
   const totalUnpaidFees = totalSchoolFees - totalPaidFees;
 
-  const filteredStudents = studentsData.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = studentsData.filter(s => {
+    const nameStr = s.name || '';
+    const idStr = s.id || '';
+    return nameStr.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           idStr.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const getRecentPayments = () => {
     let allTx = [];
