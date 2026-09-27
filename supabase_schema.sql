@@ -35,3 +35,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Insert a sample transaction for John Doe
 INSERT INTO public.transactions (student_id, amount, method, type) VALUES
 ('S001', 15000, 'mpesa', 'credit');
+
+-- Allow clients to read data (fixes UI not updating)
+CREATE POLICY "Enable read access for all users" ON public.transactions FOR SELECT USING (true);
+CREATE POLICY "Enable read access for all users" ON public.students FOR SELECT USING (true);
