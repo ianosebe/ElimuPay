@@ -174,7 +174,7 @@ function TransactionsSection({ studentsData, loading }) {
       setIsManualPaymentOpen(false);
     } catch (err) {
       console.error("Error recording manual payment:", err);
-      alert("Failed to record payment. Please try again.");
+      alert("Failed to record payment: " + (err.message || err.details || "Unknown error"));
     } finally {
       setIsSubmitting(false);
     }
