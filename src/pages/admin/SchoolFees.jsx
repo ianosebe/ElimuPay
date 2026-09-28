@@ -138,15 +138,33 @@ function FeeStructureSection() {
 
 function TransactionsSection({ studentsData, loading }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [academicTerm, setAcademicTerm] = useState('Term 3, 2026');
+  const [academicTerm, setAcademicTerm] = useState('Full Year');
   const [isManualPaymentOpen, setIsManualPaymentOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [termFees, setTermFees] = useState({ 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 });
+  const [viewStudent, setViewStudent] = useState(null);
   const [paymentForm, setPaymentForm] = useState({
     student_id: '',
     amount: '',
     method: 'cash',
     reference: ''
   });
+
+  useEffect(() => {
+    const fetchFees = async () => {
+      const { data } = await supabase.from('fee_structures').select('*');
+      if (data) {
+        const fees = { 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 };
+        data.forEach(item => { fees[item.term] = Number(item.amount); });
+        setTermFees(fees);
+      }
+    };
+    fetchFees();
+    const feeSub = supabase.channel('public:fee_structures_tx')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, fetchFees)
+      .subscribe();
+    return () => supabase.removeChannel(feeSub);
+  }, []);
 
   const handleManualPaymentSubmit = async (e) => {
     e.preventDefault();
@@ -174,10 +192,24 @@ function TransactionsSection({ studentsData, loading }) {
     }
   };
 
-  // Calculate totals
-  const totalSchoolFees = studentsData.reduce((acc, student) => acc + student.totalFees, 0);
-  const totalPaidFees = studentsData.reduce((acc, student) => acc + student.paidFees, 0);
-  const totalUnpaidFees = totalSchoolFees - totalPaidFees;
+  const getStudentStats = (student) => {
+    let remaining = student.paidFees;
+    const t1Req = termFees['Term 1'] || 0;
+    const t1Paid = Math.min(remaining, t1Req);
+    remaining = Math.max(0, remaining - t1Req);
+
+    const t2Req = termFees['Term 2'] || 0;
+    const t2Paid = Math.min(remaining, t2Req);
+    remaining = Math.max(0, remaining - t2Req);
+
+    const t3Req = termFees['Term 3'] || 0;
+    const t3Paid = Math.min(remaining, t3Req);
+    
+    if (academicTerm === 'Term 1') return { req: t1Req, paid: t1Paid };
+    if (academicTerm === 'Term 2') return { req: t2Req, paid: t2Paid };
+    if (academicTerm === 'Term 3') return { req: t3Req, paid: t3Paid };
+    return { req: t1Req + t2Req + t3Req, paid: student.paidFees };
+  };
 
   const filteredStudents = studentsData.filter(s => {
     const nameStr = s.name || '';
@@ -186,22 +218,9 @@ function TransactionsSection({ studentsData, loading }) {
            idStr.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const getRecentPayments = () => {
-    let allTx = [];
-    studentsData.forEach(student => {
-      student.transactions.forEach(tx => {
-        if (tx.type === 'credit' || !tx.type) {
-          allTx.push({ 
-            ...tx, 
-            date: tx.date || tx.created_at, 
-            studentName: student.name, 
-            studentId: student.id 
-          });
-        }
-      });
-    });
-    return allTx.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
-  };
+  const totalSchoolFees = filteredStudents.reduce((acc, s) => acc + getStudentStats(s).req, 0);
+  const totalPaidFees = filteredStudents.reduce((acc, s) => acc + getStudentStats(s).paid, 0);
+  const totalUnpaidFees = totalSchoolFees - totalPaidFees;
 
   if (loading) {
     return (
@@ -228,10 +247,10 @@ function TransactionsSection({ studentsData, loading }) {
               value={academicTerm}
               onChange={(e) => setAcademicTerm(e.target.value)}
             >
-              <option>Term 1, 2026</option>
-              <option>Term 2, 2026</option>
-              <option>Term 3, 2026</option>
-              <option>Full Year 2026</option>
+              <option value="Full Year">Full Year (All Terms)</option>
+              <option value="Term 1">Term 1</option>
+              <option value="Term 2">Term 2</option>
+              <option value="Term 3">Term 3</option>
             </select>
             <Calendar className="w-4 h-4 text-gray-500 absolute right-3 top-2.5 pointer-events-none" />
           </div>
@@ -278,119 +297,141 @@ function TransactionsSection({ studentsData, loading }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h3 className="text-lg font-medium text-gray-900">Students Directory</h3>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search students..."
-                  className="pl-9 pr-4 py-1.5 border rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2" />
-              </div>
-              <button className="p-1.5 text-gray-500 hover:text-blue-600 border border-gray-300 rounded hover:bg-gray-50 transition" title="Export CSV">
-                <Download className="w-4 h-4" />
-              </button>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-lg font-medium text-gray-900">Students Directory</h3>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search students..."
+                className="pl-9 pr-4 py-1.5 border rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48 shadow-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2" />
             </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3">Student</th>
-                  <th className="px-6 py-3">Paid</th>
-                  <th className="px-6 py-3">Unpaid</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.length > 0 ? filteredStudents.map(student => {
-                  const unpaid = student.totalFees - student.paidFees;
-                  const isFinished = unpaid <= 0;
-                  return (
-                    <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
-                      <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span>{student.name}</span>
-                          <span className="text-xs text-gray-500">{student.id} • {student.grade}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-green-600 font-medium">
-                        Ksh {student.paidFees.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-red-600 font-medium">
-                        Ksh {unpaid.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          isFinished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {isFinished ? 'Cleared' : 'Pending'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 flex items-center space-x-3">
-                        {!isFinished && (
-                          <button 
-                            className="text-gray-400 hover:text-blue-600 transition flex items-center" 
-                            title="Send SMS Reminder"
-                            onClick={() => alert(`SMS Reminder sent to ${student.name}'s parent for Ksh ${unpaid.toLocaleString()} arrears.`)}
-                          >
-                            <Bell className="w-4 h-4" />
-                          </button>
-                        )}
-                        <Link to={`/admin/student/${student.id}`} className="text-indigo-600 hover:text-indigo-900 inline-flex items-center">
-                          View <ChevronRight className="w-4 h-4 ml-1" />
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                }) : (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                      No students found. Add some students to the database to see them here.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-fit">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900">Recent Payments</h3>
-            <button className="text-xs text-blue-600 font-medium hover:underline flex items-center">
-              Export PDF
+            <button className="p-1.5 text-gray-500 hover:text-blue-600 border border-gray-300 rounded hover:bg-gray-50 transition shadow-sm" title="Export CSV">
+              <Download className="w-4 h-4" />
             </button>
           </div>
-          <div className="divide-y divide-gray-200">
-            {getRecentPayments().length > 0 ? getRecentPayments().map((tx, idx) => (
-              <div key={idx} className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{tx.studentName}</p>
-                  <p className="text-xs text-gray-500">
-                    {tx.date ? new Date(tx.date).toLocaleDateString() : 'Unknown date'}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-green-600">
-                  +Ksh {Number(tx.amount).toLocaleString()}
-                </span>
-              </div>
-            )) : (
-              <div className="p-6 text-center text-sm text-gray-500">
-                No recent transactions found.
-              </div>
-            )}
-          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-500">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3">Student</th>
+                <th className="px-6 py-3">Paid ({academicTerm})</th>
+                <th className="px-6 py-3">Unpaid ({academicTerm})</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStudents.length > 0 ? filteredStudents.map(student => {
+                const stats = getStudentStats(student);
+                const unpaid = stats.req - stats.paid;
+                const isFinished = unpaid <= 0 && stats.req > 0;
+                
+                return (
+                  <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span>{student.name}</span>
+                        <span className="text-xs text-gray-500">{student.id} • {student.grade}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-green-600 font-medium whitespace-nowrap">
+                      Ksh {stats.paid.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-red-600 font-medium whitespace-nowrap">
+                      Ksh {unpaid.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        isFinished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {isFinished ? 'Cleared' : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 flex items-center space-x-3 whitespace-nowrap">
+                      {!isFinished && (
+                        <button 
+                          className="text-gray-400 hover:text-blue-600 transition flex items-center" 
+                          title="Send SMS Reminder"
+                          onClick={() => alert(`SMS Reminder sent to ${student.name}'s parent for Ksh ${unpaid.toLocaleString()} arrears.`)}
+                        >
+                          <Bell className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => setViewStudent(student)} className="text-indigo-600 hover:text-indigo-900 inline-flex items-center">
+                        View <ChevronRight className="w-4 h-4 ml-1" />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              }) : (
+                <tr>
+                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                    No students found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
+      {/* View Student Transactions Modal */}
+      {viewStudent && (
+        <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{viewStudent.name} - Transactions</h2>
+                <p className="text-sm text-gray-500">{viewStudent.id} • {viewStudent.grade}</p>
+              </div>
+              <button onClick={() => setViewStudent(null)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-0 overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {viewStudent.transactions.length > 0 ? (
+                    viewStudent.transactions.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(tx => (
+                      <tr key={tx.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {tx.created_at ? new Date(tx.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                          Ksh {Number(tx.amount).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{tx.method || 'cash'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.reference || '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-8 text-center text-gray-500">No transactions recorded for this student.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Payment Modal */}
       {isManualPaymentOpen && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
