@@ -39,3 +39,24 @@ INSERT INTO public.transactions (student_id, amount, method, type) VALUES
 -- Allow clients to read data (fixes UI not updating)
 CREATE POLICY "Enable read access for all users" ON public.transactions FOR SELECT USING (true);
 CREATE POLICY "Enable read access for all users" ON public.students FOR SELECT USING (true);
+
+
+-- 5. Create 'fee_structures' table
+CREATE TABLE IF NOT EXISTS public.fee_structures (
+    term TEXT PRIMARY KEY,
+    amount NUMERIC NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+alter publication supabase_realtime add table public.fee_structures;
+
+ALTER TABLE public.fee_structures ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON public.fee_structures FOR SELECT USING (true);
+CREATE POLICY "Enable inserts for all users" ON public.fee_structures FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable updates for all users" ON public.fee_structures FOR UPDATE USING (true);
+
+INSERT INTO public.fee_structures (term, amount) VALUES
+('Term 1', 30000),
+('Term 2', 30000),
+('Term 3', 30000)
+ON CONFLICT (term) DO NOTHING;
