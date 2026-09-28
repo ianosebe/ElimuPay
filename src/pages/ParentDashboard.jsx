@@ -50,9 +50,11 @@ export default function ParentDashboard() {
           const studentTxs = (transactions || []).filter(tx => tx.student_id === student.id);
           const paidFees = studentTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
           
+          const fullName = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown Student';
+          
           return {
             id: student.id,
-            name: student.name,
+            name: fullName,
             grade: student.grade,
             totalFees: student.total_fees || 75000,
             paidFees: paidFees,
