@@ -466,7 +466,6 @@ function TransactionsSection({ studentsData, loading }) {
 function FeesByGradeSection({ studentsData }) {
   const [termFees, setTermFees] = useState({ 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 });
   const [selectedGrade, setSelectedGrade] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -499,11 +498,9 @@ function FeesByGradeSection({ studentsData }) {
 
   const uniqueGrades = ['All', ...new Set(studentsData.map(s => s.grade).filter(Boolean))].sort();
 
-  const filteredStudents = studentsData.filter(s => {
-    const matchesGrade = selectedGrade === 'All' || s.grade === selectedGrade;
-    const matchesName = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesGrade && matchesName;
-  });
+  const filteredStudents = selectedGrade === 'All' 
+    ? studentsData 
+    : studentsData.filter(s => s.grade === selectedGrade);
 
   if (isLoading) {
     return (
@@ -521,27 +518,15 @@ function FeesByGradeSection({ studentsData }) {
           <h2 className="text-xl font-semibold text-gray-900">Fees by Grade</h2>
           <p className="text-sm text-gray-500 mt-1">Detailed fee distribution per student across academic terms</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search student name..."
-              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-56 shadow-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-          </div>
-          <select
-            className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-sm font-medium focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-            value={selectedGrade}
-            onChange={(e) => setSelectedGrade(e.target.value)}
-          >
-            {uniqueGrades.map(g => (
-              <option key={g} value={g}>{g === 'All' ? 'All Grades' : g}</option>
-            ))}
-          </select>
-        </div>
+        <select
+          className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-sm font-medium focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+          value={selectedGrade}
+          onChange={(e) => setSelectedGrade(e.target.value)}
+        >
+          {uniqueGrades.map(g => (
+            <option key={g} value={g}>{g === 'All' ? 'All Grades' : g}</option>
+          ))}
+        </select>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
@@ -576,7 +561,9 @@ function FeesByGradeSection({ studentsData }) {
 
               return (
                 <tr key={student.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {student.name || <span className="text-red-400 italic">No Name in DB ({student.id})</span>}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.grade}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
                     {t1Paid.toLocaleString()} <span className="text-xs text-gray-400">/ {t1Req.toLocaleString()}</span>
