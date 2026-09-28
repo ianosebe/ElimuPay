@@ -147,7 +147,8 @@ function TransactionsSection({ studentsData, loading }) {
     student_id: '',
     amount: '',
     method: 'cash',
-    reference: ''
+    reference: '',
+    phone: ''
   });
 
   useEffect(() => {
@@ -172,17 +173,35 @@ function TransactionsSection({ studentsData, loading }) {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('transactions').insert([{
-        student_id: paymentForm.student_id,
-        amount: parseFloat(paymentForm.amount),
-        method: paymentForm.method,
-        type: 'credit',
-        reference: paymentForm.reference || null,
-      }]);
+      if (paymentForm.method === 'mpesa_prompt') {
+        if (!paymentForm.phone) throw new Error("Phone number is required for STK Push");
+        
+        // Trigger Supabase Edge Function for M-Pesa STK Push
+        const { data, error } = await supabase.functions.invoke('mpesa', {
+          body: {
+            action: 'stk_push',
+            phone: paymentForm.phone,
+            amount: parseFloat(paymentForm.amount),
+            student_id: paymentForm.student_id
+          }
+        });
+
+        if (error) throw error;
+        alert(`STK Push prompt sent successfully to ${paymentForm.phone}!`);
+      } else {
+        // Direct Database Insert for cash/cheque/bank
+        const { error } = await supabase.from('transactions').insert([{
+          student_id: paymentForm.student_id,
+          amount: parseFloat(paymentForm.amount),
+          method: paymentForm.method,
+          type: 'credit',
+          reference: paymentForm.reference || null,
+        }]);
+        
+        if (error) throw error;
+      }
       
-      if (error) throw error;
-      
-      setPaymentForm({ student_id: '', amount: '', method: 'cash', reference: '' });
+      setPaymentForm({ student_id: '', amount: '', method: 'cash', reference: '', phone: '' });
       setIsManualPaymentOpen(false);
     } catch (err) {
       console.error("Error recording manual payment:", err);
@@ -478,17 +497,36 @@ function TransactionsSection({ studentsData, loading }) {
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="cheque">Cheque</option>
                   <option value="manual_mpesa">M-Pesa (Manual)</option>
+                  <option value="mpesa_prompt">M-Pesa (Send STK Prompt)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reference / Receipt No. (Optional)</label>
-                <input 
-                  type="text" 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={paymentForm.reference}
-                  onChange={e => setPaymentForm({...paymentForm, reference: e.target.value})}
-                />
-              </div>
+              
+              {paymentForm.method === 'mpesa_prompt' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Parent Phone Number</label>
+                  <input 
+                    type="tel" 
+                    placeholder="e.g. 254712345678"
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-green-500 focus:border-green-500"
+                    value={paymentForm.phone}
+                    onChange={e => setPaymentForm({...paymentForm, phone: e.target.value})}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: 2547XXXXXXXX or 07XXXXXXXX</p>
+                </div>
+              )}
+
+              {paymentForm.method !== 'mpesa_prompt' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reference / Receipt No. (Optional)</label>
+                  <input 
+                    type="text" 
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={paymentForm.reference}
+                    onChange={e => setPaymentForm({...paymentForm, reference: e.target.value})}
+                  />
+                </div>
+              )}
               <button 
                 type="submit" 
                 disabled={isSubmitting}
