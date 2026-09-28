@@ -466,6 +466,7 @@ function TransactionsSection({ studentsData, loading }) {
 function FeesByGradeSection({ studentsData }) {
   const [termFees, setTermFees] = useState({ 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 });
   const [selectedGrade, setSelectedGrade] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -498,9 +499,11 @@ function FeesByGradeSection({ studentsData }) {
 
   const uniqueGrades = ['All', ...new Set(studentsData.map(s => s.grade).filter(Boolean))].sort();
 
-  const filteredStudents = selectedGrade === 'All' 
-    ? studentsData 
-    : studentsData.filter(s => s.grade === selectedGrade);
+  const filteredStudents = studentsData.filter(s => {
+    const matchesGrade = selectedGrade === 'All' || s.grade === selectedGrade;
+    const matchesName = (s.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesGrade && matchesName;
+  });
 
   if (isLoading) {
     return (
@@ -513,20 +516,32 @@ function FeesByGradeSection({ studentsData }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Fees by Grade</h2>
           <p className="text-sm text-gray-500 mt-1">Detailed fee distribution per student across academic terms</p>
         </div>
-        <select
-          className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-sm font-medium focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-          value={selectedGrade}
-          onChange={(e) => setSelectedGrade(e.target.value)}
-        >
-          {uniqueGrades.map(g => (
-            <option key={g} value={g}>{g === 'All' ? 'All Grades' : g}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search student name..."
+              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-full sm:w-56 shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+          </div>
+          <select
+            className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-sm font-medium focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+            value={selectedGrade}
+            onChange={(e) => setSelectedGrade(e.target.value)}
+          >
+            {uniqueGrades.map(g => (
+              <option key={g} value={g}>{g === 'All' ? 'All Grades' : g}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
