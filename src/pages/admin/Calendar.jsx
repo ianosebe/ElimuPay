@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Calendar, Trash2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 const EVENT_COLORS = [
   { label: 'Blue', bg: 'bg-blue-500', light: 'bg-blue-100', text: 'text-blue-700', value: 'blue' },
@@ -26,20 +26,25 @@ export default function SchoolCalendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [dbError, setDbError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', color: 'blue' });
 
   // Fetch events from Supabase
   const fetchEvents = async () => {
     try {
+      setDbError(null);
       const { data, error } = await supabase
         .from('school_events')
         .select('*')
         .order('event_date', { ascending: true });
-      if (error) throw error;
-      setEvents(data || []);
+      if (error) {
+        setDbError(error.message);
+      } else {
+        setEvents(data || []);
+      }
     } catch (err) {
-      console.error('Error fetching events:', err);
+      setDbError(err.message || 'Failed to connect to database');
     } finally {
       setIsLoading(false);
     }
@@ -138,6 +143,22 @@ export default function SchoolCalendar() {
         </div>
       </div>
 
+      {/* DB Error Banner — shown when the table doesn't exist yet */}
+      {dbError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start">
+          <div className="shrink-0 mt-0.5">
+            <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 110 18A9 9 0 0112 3z" /></svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Database table not set up yet</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Please run the <strong>school_events</strong> SQL in your Supabase Dashboard (SQL Editor) to activate this feature.
+            </p>
+            <p className="text-xs text-amber-600 mt-1 font-mono break-all">{dbError}</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Calendar Grid */}
         <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -164,31 +185,28 @@ export default function SchoolCalendar() {
           </div>
 
           {/* Calendar Cells */}
-          {isLoading ? (
-            <div className="flex items-center justify-center h-64 text-gray-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-              Loading events...
-            </div>
-          ) : (
-            <div className="grid grid-cols-7">
-              {cells.map((day, idx) => {
-                const dayEvents = getEventsForDay(day);
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => openAdd(day)}
-                    className={`min-h-[90px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition
-                      ${day ? 'hover:bg-blue-50/40' : 'bg-gray-50 cursor-default'}
-                      ${isToday(day) ? 'bg-blue-50' : ''}
-                    `}
-                  >
-                    {day && (
-                      <>
-                        <div className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium mb-1
-                          ${isToday(day) ? 'bg-blue-600 text-white font-bold' : 'text-gray-700 hover:bg-blue-100'}
-                        `}>
-                          {day}
-                        </div>
+          <div className="grid grid-cols-7">
+            {cells.map((day, idx) => {
+              const dayEvents = getEventsForDay(day);
+              return (
+                <div
+                  key={idx}
+                  onClick={() => openAdd(day)}
+                  className={`min-h-[90px] border-b border-r border-gray-100 p-1.5 cursor-pointer transition
+                    ${day ? 'hover:bg-blue-50/40' : 'bg-gray-50 cursor-default'}
+                    ${isToday(day) ? 'bg-blue-50' : ''}
+                  `}
+                >
+                  {day && (
+                    <>
+                      <div className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium mb-1
+                        ${isToday(day) ? 'bg-blue-600 text-white font-bold' : 'text-gray-700 hover:bg-blue-100'}
+                      `}>
+                        {day}
+                      </div>
+                      {isLoading ? (
+                        <div className="h-1.5 bg-gray-100 rounded animate-pulse w-3/4"></div>
+                      ) : (
                         <div className="space-y-0.5">
                           {dayEvents.slice(0, 2).map(ev => {
                             const color = COLOR_MAP[ev.color] || COLOR_MAP['blue'];
@@ -212,13 +230,14 @@ export default function SchoolCalendar() {
                             <div className="text-xs text-gray-400 pl-1">+{dayEvents.length - 2} more</div>
                           )}
                         </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
         </div>
 
         {/* Upcoming Events Sidebar */}
