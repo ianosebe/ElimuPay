@@ -18,6 +18,7 @@ import Staff from './pages/admin/Staff';
 import Timetable from './pages/admin/Timetable';
 import Exams from './pages/admin/Exams';
 import Attendance from './pages/admin/Attendance';
+import Calendar from './pages/admin/Calendar';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -53,6 +54,7 @@ function App() {
               <Route path="/admin/timetable" element={<Timetable />} />
               <Route path="/admin/exams" element={<Exams />} />
               <Route path="/admin/attendance" element={<Attendance />} />
+              <Route path="/admin/calendar" element={<Calendar />} />
               <Route path="/admin/reports" element={<Reports />} />
               <Route path="/admin/settings" element={<Settings />} />
             </Route>

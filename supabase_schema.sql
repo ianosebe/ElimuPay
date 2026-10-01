@@ -60,3 +60,21 @@ INSERT INTO public.fee_structures (term, amount) VALUES
 ('Term 2', 30000),
 ('Term 3', 30000)
 ON CONFLICT (term) DO NOTHING;
+
+-- 6. Create 'school_events' table for the Calendar of Events
+CREATE TABLE IF NOT EXISTS public.school_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    event_date DATE NOT NULL,
+    color TEXT DEFAULT 'blue',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+alter publication supabase_realtime add table public.school_events;
+
+ALTER TABLE public.school_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON public.school_events FOR SELECT USING (true);
+CREATE POLICY "Enable inserts for all users" ON public.school_events FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable updates for all users" ON public.school_events FOR UPDATE USING (true);
+CREATE POLICY "Enable deletes for all users" ON public.school_events FOR DELETE USING (true);
