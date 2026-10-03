@@ -8,12 +8,12 @@ import { supabase } from '../../lib/supabase';
 const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
 
 const GRADE_COLORS = [
-  { bg: 'bg-blue-500',   light: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700',   ring: 'ring-blue-400' },
-  { bg: 'bg-purple-500', light: 'bg-purple-50',  border: 'border-purple-200', text: 'text-purple-700', ring: 'ring-purple-400' },
-  { bg: 'bg-emerald-500',light: 'bg-emerald-50', border: 'border-emerald-200',text: 'text-emerald-700',ring: 'ring-emerald-400' },
-  { bg: 'bg-orange-500', light: 'bg-orange-50',  border: 'border-orange-200', text: 'text-orange-700', ring: 'ring-orange-400' },
-  { bg: 'bg-rose-500',   light: 'bg-rose-50',    border: 'border-rose-200',   text: 'text-rose-700',   ring: 'ring-rose-400' },
-  { bg: 'bg-indigo-500', light: 'bg-indigo-50',  border: 'border-indigo-200', text: 'text-indigo-700', ring: 'ring-indigo-400' },
+  { bg: 'bg-blue-500', light: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', ring: 'ring-blue-400' },
+  { bg: 'bg-purple-500', light: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', ring: 'ring-purple-400' },
+  { bg: 'bg-emerald-500', light: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', ring: 'ring-emerald-400' },
+  { bg: 'bg-orange-500', light: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', ring: 'ring-orange-400' },
+  { bg: 'bg-rose-500', light: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', ring: 'ring-rose-400' },
+  { bg: 'bg-indigo-500', light: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', ring: 'ring-indigo-400' },
 ];
 
 function todayISO() {
@@ -24,12 +24,12 @@ function todayISO() {
 // ─── Grade Register View ─────────────────────────────────────────────────────
 
 function GradeRegister({ grade, color, date, onBack }) {
-  const [students,    setStudents]    = useState([]);
-  const [attendance,  setAttendance]  = useState({}); // { student_id: 'present' | 'absent' | 'late' }
-  const [loading,     setLoading]     = useState(true);
-  const [saving,      setSaving]      = useState(false);
-  const [saved,       setSaved]       = useState(false);
-  const [dbError,     setDbError]     = useState(null);
+  const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState({}); // { student_id: 'present' | 'absent' | 'late' }
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [dbError, setDbError] = useState(null);
 
   // Load students + existing attendance for this date/grade
   const load = useCallback(async () => {
@@ -71,6 +71,43 @@ function GradeRegister({ grade, color, date, onBack }) {
   }, [grade, date]);
 
   useEffect(() => { load(); }, [load]);
+
+  // --- Realtime Listener ---
+  useEffect(() => {
+    const channel = supabase
+      .channel(`public:attendance:${grade}:${date}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance' },
+        (payload) => {
+          const { new: newRecord, old: oldRecord, eventType } = payload;
+
+          if (eventType === 'INSERT' || eventType === 'UPDATE') {
+            // Verify the incoming change belongs to the current view
+            if (newRecord.date === date && newRecord.grade === grade) {
+              setAttendance(prev => ({
+                ...prev,
+                [newRecord.student_id]: newRecord.status
+              }));
+            }
+          } else if (eventType === 'DELETE') {
+            // Remove from state if it was deleted
+            if (oldRecord) {
+              setAttendance(prev => {
+                const nextState = { ...prev };
+                delete nextState[oldRecord.student_id];
+                return nextState;
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [date, grade]);
 
   const mark = (studentId, status) => {
     setSaved(false);
@@ -120,9 +157,9 @@ function GradeRegister({ grade, color, date, onBack }) {
   };
 
   const presentCount = students.filter(s => attendance[s.id] === 'present').length;
-  const absentCount  = students.filter(s => attendance[s.id] === 'absent').length;
-  const lateCount    = students.filter(s => attendance[s.id] === 'late').length;
-  const unmarked     = students.filter(s => !attendance[s.id]).length;
+  const absentCount = students.filter(s => attendance[s.id] === 'absent').length;
+  const lateCount = students.filter(s => attendance[s.id] === 'late').length;
+  const unmarked = students.filter(s => !attendance[s.id]).length;
 
   return (
     <div className="space-y-5">
@@ -158,7 +195,7 @@ function GradeRegister({ grade, color, date, onBack }) {
               Run this in your Supabase SQL Editor to create the table:
             </p>
             <pre className="text-xs bg-amber-100 rounded p-2 mt-1 overflow-x-auto text-amber-900">
-{`create table if not exists attendance (
+              {`create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   student_id text references students(id) on delete cascade,
   date date not null,
@@ -176,9 +213,9 @@ function GradeRegister({ grade, color, date, onBack }) {
       <div className="flex flex-wrap gap-3">
         {[
           { label: 'Present', count: presentCount, color: 'bg-green-100 text-green-700 border-green-200' },
-          { label: 'Absent',  count: absentCount,  color: 'bg-red-100 text-red-700 border-red-200' },
-          { label: 'Late',    count: lateCount,    color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-          { label: 'Unmarked',count: unmarked,     color: 'bg-gray-100 text-gray-600 border-gray-200' },
+          { label: 'Absent', count: absentCount, color: 'bg-red-100 text-red-700 border-red-200' },
+          { label: 'Late', count: lateCount, color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+          { label: 'Unmarked', count: unmarked, color: 'bg-gray-100 text-gray-600 border-gray-200' },
         ].map(({ label, count, color: c }) => (
           <div key={label} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${c}`}>
             <span>{count}</span>
@@ -230,9 +267,9 @@ function GradeRegister({ grade, color, date, onBack }) {
                 <li key={student.id}
                   className={`flex items-center gap-4 px-5 py-3.5 transition
                     ${status === 'present' ? 'bg-green-50/50'
-                    : status === 'absent'  ? 'bg-red-50/50'
-                    : status === 'late'    ? 'bg-yellow-50/50'
-                    : 'hover:bg-gray-50'}`}
+                      : status === 'absent' ? 'bg-red-50/50'
+                        : status === 'late' ? 'bg-yellow-50/50'
+                          : 'hover:bg-gray-50'}`}
                 >
                   {/* Avatar */}
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0
@@ -313,7 +350,7 @@ function GradeRegister({ grade, color, date, onBack }) {
       )}
     </div>
   );
-}
+} me
 
 // ─── Grade Card Grid ─────────────────────────────────────────────────────────
 
@@ -359,11 +396,11 @@ function GradeGrid({ studentCounts, selectedDate, onSelectGrade }) {
 // ─── Main Attendance Page ────────────────────────────────────────────────────
 
 export default function Attendance() {
-  const [selectedGrade,  setSelectedGrade]  = useState(null);
-  const [selectedColor,  setSelectedColor]  = useState(null);
-  const [selectedDate,   setSelectedDate]   = useState(todayISO());
-  const [studentCounts,  setStudentCounts]  = useState({});
-  const [countsLoading,  setCountsLoading]  = useState(true);
+  const [selectedGrade, setSelectedGrade] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [studentCounts, setStudentCounts] = useState({});
+  const [countsLoading, setCountsLoading] = useState(true);
 
   // Fetch student counts per grade for the cards
   useEffect(() => {
@@ -446,8 +483,8 @@ export default function Attendance() {
           <div className="flex flex-wrap gap-4 text-xs text-gray-500 mt-2">
             {[
               { icon: <Check className="w-3.5 h-3.5" />, label: 'Present', color: 'text-green-600 bg-green-100' },
-              { icon: <X className="w-3.5 h-3.5" />,     label: 'Absent',  color: 'text-red-600 bg-red-100' },
-              { icon: <Clock className="w-3.5 h-3.5" />, label: 'Late',    color: 'text-yellow-600 bg-yellow-100' },
+              { icon: <X className="w-3.5 h-3.5" />, label: 'Absent', color: 'text-red-600 bg-red-100' },
+              { icon: <Clock className="w-3.5 h-3.5" />, label: 'Late', color: 'text-yellow-600 bg-yellow-100' },
             ].map(({ icon, label, color: c }) => (
               <div key={label} className="flex items-center gap-1.5">
                 <span className={`w-5 h-5 rounded flex items-center justify-center ${c}`}>{icon}</span>
