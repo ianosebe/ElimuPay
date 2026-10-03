@@ -98,13 +98,19 @@ export default function SchoolCalendar() {
     if (!form.title.trim()) return;
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('school_events').insert([{
+      const { data, error } = await supabase.from('school_events').insert([{
         title: form.title.trim(),
         description: form.description.trim() || null,
         event_date: selectedDate,
         color: form.color,
-      }]);
+      }]).select().single();
       if (error) throw error;
+      // Optimistically update local state immediately — don't wait for Realtime
+      if (data) {
+        setEvents(prev =>
+          [...prev, data].sort((a, b) => a.event_date.localeCompare(b.event_date))
+        );
+      }
       setIsModalOpen(false);
     } catch (err) {
       alert('Failed to save event: ' + (err.message || 'Unknown error'));
@@ -115,9 +121,15 @@ export default function SchoolCalendar() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this event?')) return;
+    // Optimistically remove from local state immediately
+    setEvents(prev => prev.filter(ev => ev.id !== id));
     try {
       const { error } = await supabase.from('school_events').delete().eq('id', id);
-      if (error) throw error;
+      if (error) {
+        // Rollback on failure by re-fetching
+        fetchEvents();
+        throw error;
+      }
     } catch (err) {
       alert('Failed to delete: ' + err.message);
     }
