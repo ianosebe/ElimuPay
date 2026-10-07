@@ -75,7 +75,15 @@ export default function AddStudent() {
         const isPP2OrAbove = formData.grade && !['Playgroup', 'P1'].some(g => formData.grade.includes(g));
         if (isPP2OrAbove && Number(formData.interviewFee) > 0) charges.push({ student_id: payload.id, amount: Number(formData.interviewFee), type: 'charge', reference: 'Interview Fee' });
         
-        if (Number(formData.transport) > 0) charges.push({ student_id: payload.id, amount: Number(formData.transport), type: 'charge', reference: 'Transport Fee' });
+        let transportLabel = 'Transport Fee';
+        if (Number(formData.transport) === 2100) transportLabel = 'Transport: Mzesa / Steppa / Riverbank';
+        else if (Number(formData.transport) === 2500) transportLabel = 'Transport: Kwa Chief / Kwa Muhindi';
+        else if (Number(formData.transport) === 3000) transportLabel = 'Transport: Tassia / Catholic';
+        else if (Number(formData.transport) === 4000) transportLabel = 'Transport: Umoja / Kayole';
+        else if (Number(formData.transport) === 4500) transportLabel = 'Transport: Donholm Police Post / Kaguada';
+        else if (Number(formData.transport) === 6000) transportLabel = 'Transport: Old Doonholm';
+
+        if (Number(formData.transport) > 0) charges.push({ student_id: payload.id, amount: Number(formData.transport), type: 'charge', reference: transportLabel });
         if (Number(formData.schoolDiary) > 0) charges.push({ student_id: payload.id, amount: Number(formData.schoolDiary), type: 'charge', reference: 'School Diary' });
 
         if (charges.length > 0) {
@@ -195,8 +203,21 @@ export default function AddStudent() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transport Fee (Optional) (Ksh)</label>
-                <input type="number" name="transport" min="0" value={formData.transport} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transport Route (Optional)</label>
+                <select 
+                  name="transport" 
+                  value={formData.transport} 
+                  onChange={handleChange} 
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="0">None</option>
+                  <option value="2100">Mzesa / Steppa / Riverbank (Ksh 2,100)</option>
+                  <option value="2500">Kwa Chief / Kwa Muhindi (Ksh 2,500)</option>
+                  <option value="3000">Tassia / Catholic (Ksh 3,000)</option>
+                  <option value="4000">Umoja / Kayole (Ksh 4,000)</option>
+                  <option value="4500">Donholm Police Post / Kaguada (Ksh 4,500)</option>
+                  <option value="6000">Old Doonholm (Ksh 6,000)</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">School Diary (Yearly) (Ksh) *</label>
