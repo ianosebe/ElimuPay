@@ -78,3 +78,28 @@ CREATE POLICY "Enable read access for all users" ON public.school_events FOR SEL
 CREATE POLICY "Enable inserts for all users" ON public.school_events FOR INSERT WITH CHECK (true);
 CREATE POLICY "Enable updates for all users" ON public.school_events FOR UPDATE USING (true);
 CREATE POLICY "Enable deletes for all users" ON public.school_events FOR DELETE USING (true);
+
+-- 7. Create 'class_fee_structures' table
+CREATE TABLE IF NOT EXISTS public.class_fee_structures (
+    grade TEXT PRIMARY KEY,
+    fees NUMERIC NOT NULL DEFAULT 0,
+    meals NUMERIC NOT NULL DEFAULT 0,
+    exam NUMERIC NOT NULL DEFAULT 0,
+    total NUMERIC NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+alter publication supabase_realtime add table public.class_fee_structures;
+
+ALTER TABLE public.class_fee_structures ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON public.class_fee_structures FOR SELECT USING (true);
+CREATE POLICY "Enable inserts for all users" ON public.class_fee_structures FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable updates for all users" ON public.class_fee_structures FOR UPDATE USING (true);
+
+INSERT INTO public.class_fee_structures (grade, fees, meals, exam, total) VALUES
+('Playgroup, P1 and PP2', 3500, 1800, 300, 5600),
+('Grades 1, 2 and 3', 4000, 2000, 300, 6300),
+('Grade P4', 4200, 2100, 300, 6600),
+('Grade 5', 4500, 2100, 300, 6900),
+('Grade 6', 5000, 2100, 300, 7400)
+ON CONFLICT (grade) DO NOTHING;

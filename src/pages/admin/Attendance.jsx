@@ -350,7 +350,7 @@ function GradeRegister({ grade, color, date, onBack }) {
       )}
     </div>
   );
-} me
+}
 
 // ─── Grade Card Grid ─────────────────────────────────────────────────────────
 

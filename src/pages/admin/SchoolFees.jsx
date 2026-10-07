@@ -3,20 +3,35 @@ import { Plus, Edit2, Trash2, Search, ChevronRight, TrendingUp, AlertCircle, Dow
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
+export const mapGradeToClassFeeKey = (grade) => {
+  if (!grade) return null;
+  const g = grade.toLowerCase();
+  if (g.includes('playgroup') || g.includes('p1') || g.includes('pp2') || g.includes('pre')) return 'Playgroup, P1 and PP2';
+  if (g.includes('1') || g.includes('2') || g.includes('3')) return 'Grades 1, 2 and 3';
+  if (g.includes('4')) return 'Grade P4';
+  if (g.includes('5')) return 'Grade 5';
+  if (g.includes('6')) return 'Grade 6';
+  return null;
+};
+
 function FeeStructureSection() {
   const [termFees, setTermFees] = useState({
     'Term 1': 0,
     'Term 2': 0,
     'Term 3': 0
   });
+  const [classFees, setClassFees] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingClass, setIsEditingClass] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [editClassForm, setEditClassForm] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingClass, setIsSavingClass] = useState(false);
 
   useEffect(() => {
     fetchFees();
-    
+
     const feeSubscription = supabase
       .channel('public:fee_structures')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, () => {
@@ -24,21 +39,62 @@ function FeeStructureSection() {
       })
       .subscribe();
 
-    return () => supabase.removeChannel(feeSubscription);
+    const classFeeSubscription = supabase
+      .channel('public:class_fee_structures')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'class_fee_structures' }, () => {
+        fetchFees();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(feeSubscription);
+      supabase.removeChannel(classFeeSubscription);
+    };
   }, []);
 
   const fetchFees = async () => {
     try {
-      const { data, error } = await supabase.from('fee_structures').select('*');
-      if (error) throw error;
-      
-      if (data) {
+      const [termData, classData] = await Promise.all([
+        supabase.from('fee_structures').select('*'),
+        supabase.from('class_fee_structures').select('*').order('grade')
+      ]);
+
+      if (termData.error) throw termData.error;
+      if (classData.error) throw classData.error;
+
+      if (termData.data) {
         const fees = { 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 };
-        data.forEach(item => {
+        termData.data.forEach(item => {
           fees[item.term] = Number(item.amount);
         });
         setTermFees(fees);
         setEditForm(fees);
+      }
+      
+      if (classData.data) {
+        // Handle sorting custom since it's text
+        const order = ['Playgroup, P1 and PP2', 'Grades 1, 2 and 3', 'Grade P4', 'Grade 5', 'Grade 6'];
+        const sortedClassData = [...classData.data].sort((a, b) => {
+          let ia = order.indexOf(a.grade);
+          let ib = order.indexOf(b.grade);
+          ia = ia === -1 ? 99 : ia;
+          ib = ib === -1 ? 99 : ib;
+          return ia - ib;
+        });
+        
+        setClassFees(sortedClassData);
+        setEditClassForm(JSON.parse(JSON.stringify(sortedClassData)));
+      } else {
+        // Fallback default
+        const defaultClassFees = [
+          { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
+          { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
+          { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
+          { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
+          { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
+        ];
+        setClassFees(defaultClassFees);
+        setEditClassForm(JSON.parse(JSON.stringify(defaultClassFees)));
       }
     } catch (error) {
       console.error("Error fetching fee structure:", error);
@@ -55,10 +111,10 @@ function FeeStructureSection() {
         amount: Number(amount),
         updated_at: new Date().toISOString()
       }));
-      
+
       const { error } = await supabase.from('fee_structures').upsert(updates);
       if (error) throw error;
-      
+
       setIsEditing(false);
     } catch (error) {
       console.error("Error saving fee structure:", error);
@@ -66,6 +122,37 @@ function FeeStructureSection() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveClassFees = async () => {
+    setIsSavingClass(true);
+    try {
+      const updates = editClassForm.map(row => ({
+        ...row,
+        fees: Number(row.fees),
+        meals: Number(row.meals),
+        exam: Number(row.exam),
+        total: Number(row.fees) + Number(row.meals) + Number(row.exam),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase.from('class_fee_structures').upsert(updates);
+      if (error) throw error;
+
+      setIsEditingClass(false);
+    } catch (error) {
+      console.error("Error saving class fee structure:", error);
+      alert("Failed to save class fees: " + (error.message || "Unknown error"));
+    } finally {
+      setIsSavingClass(false);
+    }
+  };
+
+  const updateEditClassForm = (index, field, value) => {
+    const newForm = [...editClassForm];
+    newForm[index][field] = Number(value);
+    newForm[index].total = newForm[index].fees + newForm[index].meals + newForm[index].exam;
+    setEditClassForm(newForm);
   };
 
   if (isLoading) {
@@ -81,7 +168,7 @@ function FeeStructureSection() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Term Fee Structure</h2>
+          <h2 className="text-xl font-semibold text-gray-900"> Fee Structure</h2>
           <p className="text-sm text-gray-500 mt-1">Manage global fee amounts for each academic term</p>
         </div>
         {!isEditing ? (
@@ -120,12 +207,82 @@ function FeeStructureSection() {
                         type="number"
                         className="border border-gray-300 rounded-md px-3 py-1.5 focus:ring-blue-500 focus:border-blue-500"
                         value={editForm[term]}
-                        onChange={(e) => setEditForm({...editForm, [term]: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, [term]: e.target.value })}
                       />
                     </div>
                   ) : (
                     <span className="text-sm text-gray-900 font-medium">Ksh {termFees[term]?.toLocaleString() || 0}</span>
                   )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-8 flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Class Fee Structure</h2>
+          <p className="text-sm text-gray-500 mt-1">Detailed fee breakdown per grade</p>
+        </div>
+        {!isEditingClass ? (
+          <button onClick={() => setIsEditingClass(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition font-medium flex items-center">
+            <Edit2 className="w-4 h-4 mr-2" /> Edit Class Fees
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button onClick={() => { setIsEditingClass(false); setEditClassForm(JSON.parse(JSON.stringify(classFees))); }} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 transition font-medium">
+              Cancel
+            </button>
+            <button onClick={handleSaveClassFees} disabled={isSavingClass} className="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition font-medium">
+              {isSavingClass ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
+      </div>
+      
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fees (Ksh)</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meals (Ksh)</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam (Ksh)</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (Ksh)</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {(isEditingClass ? editClassForm : classFees).map((row, idx) => (
+              <tr key={idx}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.grade}</td>
+                
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {isEditingClass ? (
+                    <input type="number" className="border border-gray-300 rounded-md px-2 py-1 w-24 focus:ring-blue-500 focus:border-blue-500" value={row.fees} onChange={e => updateEditClassForm(idx, 'fees', e.target.value)} />
+                  ) : (
+                    row.fees?.toLocaleString() || 0
+                  )}
+                </td>
+                
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {isEditingClass ? (
+                    <input type="number" className="border border-gray-300 rounded-md px-2 py-1 w-24 focus:ring-blue-500 focus:border-blue-500" value={row.meals} onChange={e => updateEditClassForm(idx, 'meals', e.target.value)} />
+                  ) : (
+                    row.meals?.toLocaleString() || 0
+                  )}
+                </td>
+                
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {isEditingClass ? (
+                    <input type="number" className="border border-gray-300 rounded-md px-2 py-1 w-24 focus:ring-blue-500 focus:border-blue-500" value={row.exam} onChange={e => updateEditClassForm(idx, 'exam', e.target.value)} />
+                  ) : (
+                    row.exam?.toLocaleString() || 0
+                  )}
+                </td>
+                
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                  {row.total?.toLocaleString() || 0}
                 </td>
               </tr>
             ))}
@@ -141,7 +298,7 @@ function TransactionsSection({ studentsData, loading }) {
   const [academicTerm, setAcademicTerm] = useState('Full Year');
   const [isManualPaymentOpen, setIsManualPaymentOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [termFees, setTermFees] = useState({ 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 });
+  const [classFees, setClassFees] = useState([]);
   const [viewStudent, setViewStudent] = useState(null);
   const [paymentForm, setPaymentForm] = useState({
     student_id: '',
@@ -153,16 +310,22 @@ function TransactionsSection({ studentsData, loading }) {
 
   useEffect(() => {
     const fetchFees = async () => {
-      const { data } = await supabase.from('fee_structures').select('*');
-      if (data) {
-        const fees = { 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 };
-        data.forEach(item => { fees[item.term] = Number(item.amount); });
-        setTermFees(fees);
+      const { data } = await supabase.from('class_fee_structures').select('*');
+      if (data && data.length > 0) {
+        setClassFees(data);
+      } else {
+        setClassFees([
+          { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
+          { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
+          { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
+          { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
+          { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
+        ]);
       }
     };
     fetchFees();
-    const feeSub = supabase.channel('public:fee_structures_tx')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, fetchFees)
+    const feeSub = supabase.channel('public:class_fee_structures_tx')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'class_fee_structures' }, fetchFees)
       .subscribe();
     return () => supabase.removeChannel(feeSub);
   }, []);
@@ -175,7 +338,7 @@ function TransactionsSection({ studentsData, loading }) {
     try {
       if (paymentForm.method === 'mpesa_prompt') {
         if (!paymentForm.phone) throw new Error("Phone number is required for STK Push");
-        
+
         // Trigger Supabase Edge Function for M-Pesa STK Push
         const { data, error } = await supabase.functions.invoke('mpesa', {
           body: {
@@ -197,10 +360,10 @@ function TransactionsSection({ studentsData, loading }) {
           type: 'credit',
           reference: paymentForm.reference || null,
         }]);
-        
+
         if (error) throw error;
       }
-      
+
       setPaymentForm({ student_id: '', amount: '', method: 'cash', reference: '', phone: '' });
       setIsManualPaymentOpen(false);
     } catch (err) {
@@ -213,17 +376,23 @@ function TransactionsSection({ studentsData, loading }) {
 
   const getStudentStats = (student) => {
     let remaining = student.paidFees;
-    const t1Req = termFees['Term 1'] || 0;
+    const mappedKey = mapGradeToClassFeeKey(student.grade);
+    const classFeeObj = classFees.find(c => c.grade === mappedKey);
+    // Use the total from the class fee structure, fallback to 0 if not found
+    const perTermReq = classFeeObj ? classFeeObj.total : 0;
+    
+    // We treat the total as per term for calculation purposes (Term 1, Term 2, Term 3)
+    const t1Req = perTermReq;
     const t1Paid = Math.min(remaining, t1Req);
     remaining = Math.max(0, remaining - t1Req);
 
-    const t2Req = termFees['Term 2'] || 0;
+    const t2Req = perTermReq;
     const t2Paid = Math.min(remaining, t2Req);
     remaining = Math.max(0, remaining - t2Req);
 
-    const t3Req = termFees['Term 3'] || 0;
+    const t3Req = perTermReq;
     const t3Paid = Math.min(remaining, t3Req);
-    
+
     if (academicTerm === 'Term 1') return { req: t1Req, paid: t1Paid };
     if (academicTerm === 'Term 2') return { req: t2Req, paid: t2Paid };
     if (academicTerm === 'Term 3') return { req: t3Req, paid: t3Paid };
@@ -233,8 +402,8 @@ function TransactionsSection({ studentsData, loading }) {
   const filteredStudents = studentsData.filter(s => {
     const nameStr = s.name || '';
     const idStr = s.id || '';
-    return nameStr.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           idStr.toLowerCase().includes(searchTerm.toLowerCase());
+    return nameStr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      idStr.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const totalSchoolFees = filteredStudents.reduce((acc, s) => acc + getStudentStats(s).req, 0);
@@ -258,10 +427,10 @@ function TransactionsSection({ studentsData, loading }) {
           <h2 className="text-xl font-semibold text-gray-900">Transactions</h2>
           <p className="text-sm text-gray-500 mt-1">Overview of school finances and enrollments</p>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
-            <select 
+            <select
               className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 pl-4 pr-10 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium"
               value={academicTerm}
               onChange={(e) => setAcademicTerm(e.target.value)}
@@ -273,12 +442,12 @@ function TransactionsSection({ studentsData, loading }) {
             </select>
             <Calendar className="w-4 h-4 text-gray-500 absolute right-3 top-2.5 pointer-events-none" />
           </div>
-          
+
           <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition">
             <UserPlus className="w-4 h-4 mr-2" /> New Student
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setIsManualPaymentOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg shadow-sm hover:bg-gray-50 transition"
           >
@@ -351,7 +520,7 @@ function TransactionsSection({ studentsData, loading }) {
                 const stats = getStudentStats(student);
                 const unpaid = stats.req - stats.paid;
                 const isFinished = unpaid <= 0 && stats.req > 0;
-                
+
                 return (
                   <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
@@ -367,16 +536,15 @@ function TransactionsSection({ studentsData, loading }) {
                       Ksh {unpaid.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        isFinished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${isFinished ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
                         {isFinished ? 'Cleared' : 'Pending'}
                       </span>
                     </td>
                     <td className="px-6 py-4 flex items-center space-x-3 whitespace-nowrap">
                       {!isFinished && (
-                        <button 
-                          className="text-gray-400 hover:text-blue-600 transition flex items-center" 
+                        <button
+                          className="text-gray-400 hover:text-blue-600 transition flex items-center"
                           title="Send SMS Reminder"
                           onClick={() => alert(`SMS Reminder sent to ${student.name}'s parent for Ksh ${unpaid.toLocaleString()} arrears.`)}
                         >
@@ -426,7 +594,7 @@ function TransactionsSection({ studentsData, loading }) {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {viewStudent.transactions.length > 0 ? (
-                    viewStudent.transactions.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(tx => (
+                    viewStudent.transactions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(tx => (
                       <tr key={tx.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {tx.created_at ? new Date(tx.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
@@ -463,11 +631,11 @@ function TransactionsSection({ studentsData, loading }) {
             <form onSubmit={handleManualPaymentSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Select Student</label>
-                <select 
+                <select
                   required
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   value={paymentForm.student_id}
-                  onChange={e => setPaymentForm({...paymentForm, student_id: e.target.value})}
+                  onChange={e => setPaymentForm({ ...paymentForm, student_id: e.target.value })}
                 >
                   <option value="">-- Choose a student --</option>
                   {studentsData.map(s => (
@@ -477,21 +645,21 @@ function TransactionsSection({ studentsData, loading }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount (Ksh)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   required
                   min="1"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
                   value={paymentForm.amount}
-                  onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
+                  onChange={e => setPaymentForm({ ...paymentForm, amount: e.target.value })}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                <select 
+                <select
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   value={paymentForm.method}
-                  onChange={e => setPaymentForm({...paymentForm, method: e.target.value})}
+                  onChange={e => setPaymentForm({ ...paymentForm, method: e.target.value })}
                 >
                   <option value="cash">Cash</option>
                   <option value="bank_transfer">Bank Transfer</option>
@@ -500,17 +668,17 @@ function TransactionsSection({ studentsData, loading }) {
                   <option value="mpesa_prompt">M-Pesa (Send STK Prompt)</option>
                 </select>
               </div>
-              
+
               {paymentForm.method === 'mpesa_prompt' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Parent Phone Number</label>
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     placeholder="e.g. 254712345678"
                     required
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-green-500 focus:border-green-500"
                     value={paymentForm.phone}
-                    onChange={e => setPaymentForm({...paymentForm, phone: e.target.value})}
+                    onChange={e => setPaymentForm({ ...paymentForm, phone: e.target.value })}
                   />
                   <p className="text-xs text-gray-500 mt-1">Format: 2547XXXXXXXX or 07XXXXXXXX</p>
                 </div>
@@ -519,16 +687,16 @@ function TransactionsSection({ studentsData, loading }) {
               {paymentForm.method !== 'mpesa_prompt' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Reference / Receipt No. (Optional)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500"
                     value={paymentForm.reference}
-                    onChange={e => setPaymentForm({...paymentForm, reference: e.target.value})}
+                    onChange={e => setPaymentForm({ ...paymentForm, reference: e.target.value })}
                   />
                 </div>
               )}
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSubmitting}
                 className="w-full mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2.5 px-4 rounded-lg shadow transition"
               >
@@ -543,18 +711,24 @@ function TransactionsSection({ studentsData, loading }) {
 }
 
 function FeesByGradeSection({ studentsData }) {
-  const [termFees, setTermFees] = useState({ 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 });
+  const [classFees, setClassFees] = useState([]);
   const [selectedGrade, setSelectedGrade] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchFees = async () => {
       try {
-        const { data } = await supabase.from('fee_structures').select('*');
-        if (data) {
-          const fees = { 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 };
-          data.forEach(item => { fees[item.term] = Number(item.amount); });
-          setTermFees(fees);
+        const { data } = await supabase.from('class_fee_structures').select('*');
+        if (data && data.length > 0) {
+          setClassFees(data);
+        } else {
+          setClassFees([
+            { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
+            { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
+            { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
+            { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
+            { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
+          ]);
         }
       } catch (err) {
         console.error("Error fetching fees for grades:", err);
@@ -562,12 +736,12 @@ function FeesByGradeSection({ studentsData }) {
         setIsLoading(false);
       }
     };
-    
+
     fetchFees();
-    
+
     const feeSubscription = supabase
-      .channel('public:fee_structures_grades')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, () => {
+      .channel('public:class_fee_structures_grades')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'class_fee_structures' }, () => {
         fetchFees();
       })
       .subscribe();
@@ -577,8 +751,8 @@ function FeesByGradeSection({ studentsData }) {
 
   const uniqueGrades = ['All', ...new Set(studentsData.map(s => s.grade).filter(Boolean))].sort();
 
-  const filteredStudents = selectedGrade === 'All' 
-    ? studentsData 
+  const filteredStudents = selectedGrade === 'All'
+    ? studentsData
     : studentsData.filter(s => s.grade === selectedGrade);
 
   if (isLoading) {
@@ -624,17 +798,21 @@ function FeesByGradeSection({ studentsData }) {
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredStudents.length > 0 ? filteredStudents.map(student => {
               let remaining = student.paidFees;
-              const t1Req = termFees['Term 1'] || 0;
+              const mappedKey = mapGradeToClassFeeKey(student.grade);
+              const classFeeObj = classFees.find(c => c.grade === mappedKey);
+              const perTermReq = classFeeObj ? classFeeObj.total : 0;
+              
+              const t1Req = perTermReq;
               const t1Paid = Math.min(remaining, t1Req);
               remaining = Math.max(0, remaining - t1Req);
 
-              const t2Req = termFees['Term 2'] || 0;
+              const t2Req = perTermReq;
               const t2Paid = Math.min(remaining, t2Req);
               remaining = Math.max(0, remaining - t2Req);
 
-              const t3Req = termFees['Term 3'] || 0;
+              const t3Req = perTermReq;
               const t3Paid = Math.min(remaining, t3Req);
-              
+
               const totalReq = t1Req + t2Req + t3Req;
               const balance = totalReq - student.paidFees;
 
@@ -717,9 +895,9 @@ export default function SchoolFees() {
       const formattedData = (students || []).map(student => {
         const studentTxs = (transactions || []).filter(tx => tx.student_id === student.id);
         const paidFees = studentTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
-        
+
         const fullName = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown Student';
-        
+
         return {
           id: student.id,
           name: fullName,
@@ -748,31 +926,28 @@ export default function SchoolFees() {
         <nav className="flex space-x-8" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('fee-structure')}
-            className={`${
-              activeTab === 'fee-structure'
+            className={`${activeTab === 'fee-structure'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition`}
           >
             Fee Structure
           </button>
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`${
-              activeTab === 'transactions'
+            className={`${activeTab === 'transactions'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition`}
           >
             Transactions
           </button>
           <button
             onClick={() => setActiveTab('fees-grade')}
-            className={`${
-              activeTab === 'fees-grade'
+            className={`${activeTab === 'fees-grade'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition`}
           >
             Fees / Grade
           </button>
