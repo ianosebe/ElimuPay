@@ -15,29 +15,14 @@ export const mapGradeToClassFeeKey = (grade) => {
 };
 
 function FeeStructureSection() {
-  const [termFees, setTermFees] = useState({
-    'Term 1': 0,
-    'Term 2': 0,
-    'Term 3': 0
-  });
   const [classFees, setClassFees] = useState([]);
-  const [isEditing, setIsEditing] = useState(false);
   const [isEditingClass, setIsEditingClass] = useState(false);
-  const [editForm, setEditForm] = useState({});
   const [editClassForm, setEditClassForm] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [isSavingClass, setIsSavingClass] = useState(false);
 
   useEffect(() => {
     fetchFees();
-
-    const feeSubscription = supabase
-      .channel('public:fee_structures')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, () => {
-        fetchFees();
-      })
-      .subscribe();
 
     const classFeeSubscription = supabase
       .channel('public:class_fee_structures')
@@ -47,34 +32,20 @@ function FeeStructureSection() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(feeSubscription);
       supabase.removeChannel(classFeeSubscription);
     };
   }, []);
 
   const fetchFees = async () => {
     try {
-      const [termData, classData] = await Promise.all([
-        supabase.from('fee_structures').select('*'),
-        supabase.from('class_fee_structures').select('*').order('grade')
-      ]);
+      const { data, error } = await supabase.from('class_fee_structures').select('*').order('grade');
 
-      if (termData.error) throw termData.error;
-      if (classData.error) throw classData.error;
+      if (error && error.code !== '42P01') throw error; // Ignore table not found temporarily
 
-      if (termData.data) {
-        const fees = { 'Term 1': 0, 'Term 2': 0, 'Term 3': 0 };
-        termData.data.forEach(item => {
-          fees[item.term] = Number(item.amount);
-        });
-        setTermFees(fees);
-        setEditForm(fees);
-      }
-      
-      if (classData.data) {
+      if (data && data.length > 0) {
         // Handle sorting custom since it's text
         const order = ['Playgroup, P1 and PP2', 'Grades 1, 2 and 3', 'Grade P4', 'Grade 5', 'Grade 6'];
-        const sortedClassData = [...classData.data].sort((a, b) => {
+        const sortedClassData = [...data].sort((a, b) => {
           let ia = order.indexOf(a.grade);
           let ib = order.indexOf(b.grade);
           ia = ia === -1 ? 99 : ia;
@@ -100,27 +71,6 @@ function FeeStructureSection() {
       console.error("Error fetching fee structure:", error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const updates = Object.entries(editForm).map(([term, amount]) => ({
-        term,
-        amount: Number(amount),
-        updated_at: new Date().toISOString()
-      }));
-
-      const { error } = await supabase.from('fee_structures').upsert(updates);
-      if (error) throw error;
-
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error saving fee structure:", error);
-      alert("Failed to save fees: " + (error.message || "Unknown error"));
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -167,60 +117,6 @@ function FeeStructureSection() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900"> Fee Structure</h2>
-          <p className="text-sm text-gray-500 mt-1">Manage global fee amounts for each academic term</p>
-        </div>
-        {!isEditing ? (
-          <button onClick={() => setIsEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition font-medium flex items-center">
-            <Edit2 className="w-4 h-4 mr-2" /> Edit Fees
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button onClick={() => { setIsEditing(false); setEditForm(termFees); }} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 transition font-medium">
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={isSaving} className="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition font-medium">
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Academic Term</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tuition Amount (Ksh)</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {['Term 1', 'Term 2', 'Term 3'].map((term) => (
-              <tr key={term}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{term}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {isEditing ? (
-                    <div className="flex items-center">
-                      <span className="text-gray-500 mr-2">Ksh</span>
-                      <input
-                        type="number"
-                        className="border border-gray-300 rounded-md px-3 py-1.5 focus:ring-blue-500 focus:border-blue-500"
-                        value={editForm[term]}
-                        onChange={(e) => setEditForm({ ...editForm, [term]: e.target.value })}
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-sm text-gray-900 font-medium">Ksh {termFees[term]?.toLocaleString() || 0}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-8 flex justify-between items-center">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Class Fee Structure</h2>
           <p className="text-sm text-gray-500 mt-1">Detailed fee breakdown per grade</p>
