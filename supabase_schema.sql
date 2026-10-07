@@ -103,3 +103,29 @@ INSERT INTO public.class_fee_structures (grade, fees, meals, exam, total) VALUES
 ('Grade 5', 4500, 2100, 300, 6900),
 ('Grade 6', 5000, 2100, 300, 7400)
 ON CONFLICT (grade) DO NOTHING;
+
+
+-- 8. Create 'exam_results' table
+CREATE TABLE IF NOT EXISTS public.exam_results (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
+    term TEXT NOT NULL,
+    academic_year INTEGER NOT NULL,
+    student_grade TEXT NOT NULL,
+    scores JSONB DEFAULT '{}'::jsonb,
+    total_marks NUMERIC DEFAULT 0,
+    average NUMERIC DEFAULT 0,
+    performance_grade TEXT,
+    points INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(student_id, term, academic_year)
+);
+
+alter publication supabase_realtime add table public.exam_results;
+
+ALTER TABLE public.exam_results ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Enable read access for all users" ON public.exam_results FOR SELECT USING (true);
+CREATE POLICY "Enable inserts for all users" ON public.exam_results FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable updates for all users" ON public.exam_results FOR UPDATE USING (true);
+CREATE POLICY "Enable deletes for all users" ON public.exam_results FOR DELETE USING (true);
