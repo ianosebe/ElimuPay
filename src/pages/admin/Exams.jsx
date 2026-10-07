@@ -53,11 +53,21 @@ export default function Exams() {
       // Fetch students for this grade
       const { data: stds, error: stdsErr } = await supabase
         .from('students')
-        .select('id, first_name, last_name, name')
-        .ilike('grade', `%${selectedGrade}%`);
+        .select('id, first_name, last_name, name, grade');
       
       if (stdsErr) throw stdsErr;
       
+      // We filter locally to handle any case or whitespace issues
+      const safeStds = (stds || []).filter(s => {
+        if (!s.grade) return false;
+        // Strip spaces and lowercase to compare e.g., "Grade1" vs "Grade 1"
+        const dbG = s.grade.toLowerCase().replace(/\s+/g, '');
+        const selG = selectedGrade.toLowerCase().replace(/\s+/g, '');
+        return dbG.includes(selG) || selG.includes(dbG);
+      });
+      
+      setStudents(safeStds);
+
       // Fetch existing results for these students, term, and year
       const { data: res, error: resErr } = await supabase
         .from('exam_results')
@@ -65,10 +75,12 @@ export default function Exams() {
         .eq('term', selectedTerm)
         .eq('academic_year', selectedYear);
 
-      if (resErr && resErr.code !== '42P01') throw resErr; // Ignore table missing for now
+      if (resErr && resErr.code !== '42P01') {
+        console.warn("Exam results table might not be ready:", resErr);
+      }
 
       const resultsMap = {};
-      stds.forEach(s => {
+      safeStds.forEach(s => {
         // Find existing result record if any
         const existing = res ? res.find(r => r.student_id === s.id) : null;
         if (existing) {
@@ -89,7 +101,6 @@ export default function Exams() {
         }
       });
 
-      setStudents(stds || []);
       setResults(resultsMap);
     } catch (error) {
       console.error("Error fetching exams data:", error);
