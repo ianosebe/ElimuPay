@@ -37,10 +37,23 @@ function FeeStructureSection() {
   }, []);
 
   const fetchFees = async () => {
+    const defaultClassFees = [
+      { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
+      { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
+      { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
+      { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
+      { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
+    ];
+
     try {
       const { data, error } = await supabase.from('class_fee_structures').select('*').order('grade');
 
-      if (error && error.code !== '42P01') throw error; // Ignore table not found temporarily
+      if (error) {
+        console.warn("Supabase fetch error, using fallback.", error);
+        setClassFees(defaultClassFees);
+        setEditClassForm(JSON.parse(JSON.stringify(defaultClassFees)));
+        return;
+      }
 
       if (data && data.length > 0) {
         // Handle sorting custom since it's text
@@ -56,19 +69,14 @@ function FeeStructureSection() {
         setClassFees(sortedClassData);
         setEditClassForm(JSON.parse(JSON.stringify(sortedClassData)));
       } else {
-        // Fallback default
-        const defaultClassFees = [
-          { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
-          { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
-          { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
-          { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
-          { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
-        ];
+        // Empty table
         setClassFees(defaultClassFees);
         setEditClassForm(JSON.parse(JSON.stringify(defaultClassFees)));
       }
     } catch (error) {
       console.error("Error fetching fee structure:", error);
+      setClassFees(defaultClassFees);
+      setEditClassForm(JSON.parse(JSON.stringify(defaultClassFees)));
     } finally {
       setIsLoading(false);
     }
@@ -206,17 +214,24 @@ function TransactionsSection({ studentsData, loading }) {
 
   useEffect(() => {
     const fetchFees = async () => {
-      const { data } = await supabase.from('class_fee_structures').select('*');
-      if (data && data.length > 0) {
-        setClassFees(data);
-      } else {
-        setClassFees([
-          { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
-          { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
-          { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
-          { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
-          { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
-        ]);
+      const defaultClassFees = [
+        { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
+        { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
+        { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
+        { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
+        { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
+      ];
+      try {
+        const { data, error } = await supabase.from('class_fee_structures').select('*');
+        if (error) {
+          setClassFees(defaultClassFees);
+        } else if (data && data.length > 0) {
+          setClassFees(data);
+        } else {
+          setClassFees(defaultClassFees);
+        }
+      } catch (err) {
+        setClassFees(defaultClassFees);
       }
     };
     fetchFees();
@@ -613,21 +628,25 @@ function FeesByGradeSection({ studentsData }) {
 
   useEffect(() => {
     const fetchFees = async () => {
+      const defaultClassFees = [
+        { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
+        { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
+        { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
+        { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
+        { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
+      ];
       try {
-        const { data } = await supabase.from('class_fee_structures').select('*');
-        if (data && data.length > 0) {
+        const { data, error } = await supabase.from('class_fee_structures').select('*');
+        if (error) {
+          setClassFees(defaultClassFees);
+        } else if (data && data.length > 0) {
           setClassFees(data);
         } else {
-          setClassFees([
-            { grade: 'Playgroup, P1 and PP2', fees: 3500, meals: 1800, exam: 300, total: 5600 },
-            { grade: 'Grades 1, 2 and 3', fees: 4000, meals: 2000, exam: 300, total: 6300 },
-            { grade: 'Grade P4', fees: 4200, meals: 2100, exam: 300, total: 6600 },
-            { grade: 'Grade 5', fees: 4500, meals: 2100, exam: 300, total: 6900 },
-            { grade: 'Grade 6', fees: 5000, meals: 2100, exam: 300, total: 7400 }
-          ]);
+          setClassFees(defaultClassFees);
         }
       } catch (err) {
         console.error("Error fetching fees for grades:", err);
+        setClassFees(defaultClassFees);
       } finally {
         setIsLoading(false);
       }
