@@ -293,7 +293,8 @@ function TransactionsSection({ studentsData, loading }) {
     const perTermReq = classFeeObj ? classFeeObj.total : 0;
     
     // We treat the total as per term for calculation purposes (Term 1, Term 2, Term 3)
-    const t1Req = perTermReq;
+    // Add extra initial fees (admission, etc) to Term 1 requirement
+    const t1Req = perTermReq + (student.extraFees || 0);
     const t1Paid = Math.min(remaining, t1Req);
     remaining = Math.max(0, remaining - t1Req);
 
@@ -717,7 +718,7 @@ function FeesByGradeSection({ studentsData }) {
               const classFeeObj = classFees.find(c => c.grade === mappedKey);
               const perTermReq = classFeeObj ? classFeeObj.total : 0;
               
-              const t1Req = perTermReq;
+              const t1Req = perTermReq + (student.extraFees || 0);
               const t1Paid = Math.min(remaining, t1Req);
               remaining = Math.max(0, remaining - t1Req);
 
@@ -809,7 +810,8 @@ export default function SchoolFees() {
       // Format data to match UI expectations
       const formattedData = (students || []).map(student => {
         const studentTxs = (transactions || []).filter(tx => tx.student_id === student.id);
-        const paidFees = studentTxs.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+        const paidFees = studentTxs.filter(tx => tx.type !== 'charge').reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+        const extraFees = studentTxs.filter(tx => tx.type === 'charge').reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
 
         const fullName = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown Student';
 
@@ -819,6 +821,7 @@ export default function SchoolFees() {
           grade: student.grade,
           totalFees: student.total_fees || 75000, // fallback if no total_fees column
           paidFees: paidFees,
+          extraFees: extraFees,
           transactions: studentTxs
         };
       });

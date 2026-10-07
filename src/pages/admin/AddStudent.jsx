@@ -22,7 +22,13 @@ export default function AddStudent() {
     parentName: editStudent?.parent_name || '',
     parentPhone: editStudent?.parent_phone || '',
     parentEmail: '',
-    address: ''
+    address: '',
+    // Extra Initial Fees
+    admissionFee: 0,
+    assessmentBook: 0,
+    interviewFee: 0,
+    transport: 0,
+    schoolDiary: 0
   });
 
   const handleChange = (e) => {
@@ -60,6 +66,24 @@ export default function AddStudent() {
     if (error) {
       alert(`Error ${isEdit ? 'updating' : 'saving'} student: ` + error.message);
     } else {
+      if (!isEdit) {
+        // Add extra fees as charges if any are > 0
+        const charges = [];
+        if (Number(formData.admissionFee) > 0) charges.push({ student_id: payload.id, amount: Number(formData.admissionFee), type: 'charge', reference: 'Admission Fee' });
+        if (Number(formData.assessmentBook) > 0) charges.push({ student_id: payload.id, amount: Number(formData.assessmentBook), type: 'charge', reference: 'Assessment Book' });
+        
+        const isPP2OrAbove = formData.grade && !['Playgroup', 'P1'].some(g => formData.grade.includes(g));
+        if (isPP2OrAbove && Number(formData.interviewFee) > 0) charges.push({ student_id: payload.id, amount: Number(formData.interviewFee), type: 'charge', reference: 'Interview Fee' });
+        
+        if (Number(formData.transport) > 0) charges.push({ student_id: payload.id, amount: Number(formData.transport), type: 'charge', reference: 'Transport Fee' });
+        if (Number(formData.schoolDiary) > 0) charges.push({ student_id: payload.id, amount: Number(formData.schoolDiary), type: 'charge', reference: 'School Diary' });
+
+        if (charges.length > 0) {
+          const { error: txError } = await supabase.from('transactions').insert(charges);
+          if (txError) console.error("Error adding initial charges:", txError);
+        }
+      }
+
       alert(`Successfully ${isEdit ? 'updated' : 'added'} student ${formData.firstName} ${formData.lastName}!`);
       navigate('/admin/students');
     }
@@ -144,6 +168,43 @@ export default function AddStudent() {
             </div>
           </div>
         </div>
+
+        {/* Extra Initial Fees Section */}
+        {!isEdit && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center">
+              <BookOpen className="w-5 h-5 text-gray-400 mr-2" />
+              <h2 className="text-lg font-medium text-gray-900">Additional Initial Fees (Optional)</h2>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Admission Fee (Ksh)</label>
+                <input type="number" name="admissionFee" min="0" value={formData.admissionFee} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assessment Book (Ksh)</label>
+                <input type="number" name="assessmentBook" min="0" value={formData.assessmentBook} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" />
+              </div>
+              
+              {/* Show Interview Fee only if grade is PP2 or above (e.g. not Playgroup, not P1) */}
+              {formData.grade && !['Playgroup', 'P1'].some(g => formData.grade.includes(g)) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Interview Fee (Ksh)</label>
+                  <input type="number" name="interviewFee" min="0" value={formData.interviewFee} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transport Fee (Ksh)</label>
+                <input type="number" name="transport" min="0" value={formData.transport} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">School Diary (Ksh)</label>
+                <input type="number" name="schoolDiary" min="0" value={formData.schoolDiary} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Submit Actions */}
         <div className="flex justify-end space-x-4">
