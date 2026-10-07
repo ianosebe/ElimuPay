@@ -108,7 +108,7 @@ ON CONFLICT (grade) DO NOTHING;
 -- 8. Create 'exam_results' table
 CREATE TABLE IF NOT EXISTS public.exam_results (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
+    student_id TEXT REFERENCES public.students(id) ON DELETE CASCADE,
     term TEXT NOT NULL,
     academic_year INTEGER NOT NULL,
     student_grade TEXT NOT NULL,
