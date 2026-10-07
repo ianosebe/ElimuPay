@@ -203,7 +203,7 @@ export default function AddStudent() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transport Route (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transport Route</label>
                 <select 
                   name="transport" 
                   value={formData.transport} 
