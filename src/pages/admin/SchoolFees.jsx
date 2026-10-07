@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, ChevronRight, TrendingUp, AlertCircle, Download, FileText, Bell, Calendar, UserPlus, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ChevronRight, TrendingUp, AlertCircle, Download, FileText, Bell, Calendar, UserPlus, X, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -20,6 +20,7 @@ function FeeStructureSection() {
   const [editClassForm, setEditClassForm] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingClass, setIsSavingClass] = useState(false);
+  const [isBulkBilling, setIsBulkBilling] = useState(false);
 
   useEffect(() => {
     fetchFees();
@@ -113,6 +114,36 @@ function FeeStructureSection() {
     setEditClassForm(newForm);
   };
 
+  const handleBulkDiaryFee = async () => {
+    if (!window.confirm("Are you sure you want to bill Ksh 200 for the School Diary to ALL students? This cannot be easily undone.")) return;
+    
+    setIsBulkBilling(true);
+    try {
+      const { data: students, error: fetchError } = await supabase.from('students').select('id');
+      if (fetchError) throw fetchError;
+
+      if (students && students.length > 0) {
+        const charges = students.map(s => ({
+          student_id: s.id,
+          amount: 200,
+          type: 'charge',
+          reference: `School Diary ${new Date().getFullYear()}`
+        }));
+
+        const { error: insertError } = await supabase.from('transactions').insert(charges);
+        if (insertError) throw insertError;
+        alert(`Successfully billed School Diary to ${students.length} students.`);
+      } else {
+        alert("No students found.");
+      }
+    } catch (error) {
+      console.error("Bulk billing error:", error);
+      alert("Failed to apply bulk billing: " + error.message);
+    } finally {
+      setIsBulkBilling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64 text-gray-500">
@@ -192,6 +223,23 @@ function FeeStructureSection() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center">
+          <BookOpen className="w-5 h-5 text-gray-400 mr-2" />
+          <h2 className="text-lg font-medium text-gray-900">Annual Bulk Actions</h2>
+        </div>
+        <div className="p-6">
+          <p className="text-sm text-gray-500 mb-4">Apply mandatory yearly fees (like the School Diary) to all currently enrolled students at once.</p>
+          <button 
+            onClick={handleBulkDiaryFee}
+            disabled={isBulkBilling}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 transition font-medium flex items-center"
+          >
+            {isBulkBilling ? 'Billing...' : 'Bill School Diary (Ksh 200) to All Students'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -499,7 +547,8 @@ function TransactionsSection({ studentsData, loading }) {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                   </tr>
@@ -511,10 +560,17 @@ function TransactionsSection({ studentsData, loading }) {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {tx.created_at ? new Date(tx.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {tx.type === 'charge' ? (
+                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs">Fee / Billed</span>
+                          ) : (
+                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs">Payment</span>
+                          )}
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${tx.type === 'charge' ? 'text-gray-600' : 'text-green-600'}`}>
                           Ksh {Number(tx.amount).toLocaleString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{tx.method || 'cash'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{tx.type === 'charge' ? 'System' : (tx.method || 'cash')}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.reference || '-'}</td>
                       </tr>
                     ))
