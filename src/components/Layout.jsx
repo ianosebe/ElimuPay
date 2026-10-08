@@ -61,7 +61,7 @@ export function Layout() {
                   </Link>
                   {link.name === 'Student Profiles' && isActive && (
                     <div className="ml-8 mt-1 space-y-1">
-                      {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(grade => {
+                      {['Playgroup', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(grade => {
                         const isGradeActive = location.search.includes(`grade=${grade.replace(' ', '+')}`) || location.search.includes(`grade=${grade.replace(' ', '%20')}`);
                         return (
                           <Link 
@@ -77,7 +77,7 @@ export function Layout() {
                   )}
                   {hasDropdown && (
                     <div className="ml-8 mt-1 space-y-1 hidden group-hover:block transition-all">
-                      {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(grade => {
+                      {['Playgroup', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'].map(grade => {
                         const isGradeActive = location.pathname === link.path && (location.search.includes(`grade=${grade.replace(' ', '+')}`) || location.search.includes(`grade=${grade.replace(' ', '%20')}`));
                         return (
                           <Link 
