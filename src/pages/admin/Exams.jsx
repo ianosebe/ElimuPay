@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, Save, Search, Download, Check } from 'lucide-react';
+import { ClipboardList, Save, Search, Download, Check, Edit2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const getLearningAreas = (grade) => {
@@ -39,6 +39,7 @@ export default function Exams() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isEditing, setIsEditing] = useState(true);
 
   const gradesList = ['Playgroup', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade P4', 'Grade 5', 'Grade 6'];
   const learningAreas = getLearningAreas(selectedGrade);
@@ -49,6 +50,7 @@ export default function Exams() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setIsEditing(true); // Always start editable when changing terms/classes
     try {
       // Fetch students for this grade
       const { data: stds, error: stdsErr } = await supabase
@@ -161,6 +163,7 @@ export default function Exams() {
       const { error } = await supabase.from('exam_results').upsert(payload, { onConflict: 'student_id,term,academic_year' });
       if (error) throw error;
       
+      setIsEditing(false);
       alert("Results saved successfully!");
     } catch (error) {
       console.error("Error saving results:", error);
@@ -182,13 +185,23 @@ export default function Exams() {
           <h1 className="text-2xl font-bold text-gray-900">Examination & Results</h1>
           <p className="text-sm text-gray-500 mt-1">Record and manage student performance and grades (KNEC 2026).</p>
         </div>
-        <button 
-          onClick={handleSave} 
-          disabled={isSaving || students.length === 0}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition disabled:bg-blue-400"
-        >
-          <Save className="w-4 h-4 mr-2" /> {isSaving ? 'Saving...' : 'Save All Results'}
-        </button>
+        
+        {isEditing ? (
+          <button 
+            onClick={handleSave} 
+            disabled={isSaving || students.length === 0}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-blue-700 transition disabled:bg-blue-400"
+          >
+            <Save className="w-4 h-4 mr-2" /> {isSaving ? 'Saving...' : 'Save All Results'}
+          </button>
+        ) : (
+          <button 
+            onClick={() => setIsEditing(true)} 
+            className="inline-flex items-center px-4 py-2 bg-white text-gray-700 border border-gray-300 text-sm font-medium rounded-lg shadow-sm hover:bg-gray-50 transition"
+          >
+            <Edit2 className="w-4 h-4 mr-2" /> Edit Results
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -269,14 +282,20 @@ export default function Exams() {
                     
                     {learningAreas.map(area => (
                       <td key={area} className="px-2 py-3 text-center">
-                        <input 
-                          type="number" 
-                          min="0" 
-                          max="100"
-                          value={res.scores[area] !== undefined ? res.scores[area] : ''}
-                          onChange={(e) => handleScoreChange(student.id, area, e.target.value)}
-                          className="w-16 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:ring-blue-500 focus:border-blue-500"
-                        />
+                        {isEditing ? (
+                          <input 
+                            type="number" 
+                            min="0" 
+                            max="100"
+                            value={res.scores[area] !== undefined ? res.scores[area] : ''}
+                            onChange={(e) => handleScoreChange(student.id, area, e.target.value)}
+                            className="w-16 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        ) : (
+                          <span className="text-gray-900 font-medium">
+                            {res.scores[area] !== undefined && res.scores[area] !== '' ? res.scores[area] : '-'}
+                          </span>
+                        )}
                       </td>
                     ))}
                     
