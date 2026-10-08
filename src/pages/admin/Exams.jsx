@@ -50,7 +50,6 @@ export default function Exams() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    setIsEditing(true); // Always start editable when changing terms/classes
     try {
       // Fetch students for this grade
       const { data: stds, error: stdsErr } = await supabase
@@ -82,10 +81,13 @@ export default function Exams() {
       }
 
       const resultsMap = {};
+      let hasExistingResults = false;
+      
       safeStds.forEach(s => {
         // Find existing result record if any
         const existing = res ? res.find(r => r.student_id === s.id) : null;
         if (existing) {
+          hasExistingResults = true;
           resultsMap[s.id] = { ...existing };
         } else {
           // Initialize empty
@@ -103,6 +105,8 @@ export default function Exams() {
         }
       });
 
+      // Auto-lock the view if we loaded previously saved results
+      setIsEditing(!hasExistingResults);
       setResults(resultsMap);
     } catch (error) {
       console.error("Error fetching exams data:", error);
