@@ -43,7 +43,7 @@ export function Layout() {
             {adminLinks.map(link => {
               const Icon = link.icon;
               const isActive = location.pathname === link.path || (link.path !== '/admin' && location.pathname.startsWith(link.path));
-              const hasDropdown = link.name === 'Timetable' || link.name === 'Examination & Results';
+              const hasDropdown = link.name === 'Timetable';
               
               return (
                 <div key={link.name} className="flex flex-col group">
