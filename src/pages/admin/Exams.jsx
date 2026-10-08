@@ -53,7 +53,7 @@ export default function Exams() {
       // Fetch students for this grade
       const { data: stds, error: stdsErr } = await supabase
         .from('students')
-        .select('id, first_name, last_name, name, grade');
+        .select('id, first_name, last_name, grade');
       
       if (stdsErr) throw stdsErr;
       
